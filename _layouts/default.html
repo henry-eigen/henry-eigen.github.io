@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% if page.title %}{{ page.title }} — {{ site.title }}{% else %}{{ site.title }}{% endif %}</title>
+  <style>
+    :root {
+      --bg: #fff;
+      --fg: #222;
+      --muted: #666;
+      --border: #e0e0e0;
+      --link: #0056b3;
+      --max-w: 780px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1a1a;
+        --fg: #e0e0e0;
+        --muted: #999;
+        --border: #333;
+        --link: #6db3f2;
+      }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--fg);
+      background: var(--bg);
+      line-height: 1.7;
+      padding: 2rem 1.5rem;
+      max-width: var(--max-w);
+      margin: 0 auto;
+    }
+    header { margin-bottom: 3rem; }
+    header .site-title { font-size: 1.1rem; font-weight: 600; }
+    header .site-title a { color: var(--fg); text-decoration: none; }
+    a { color: var(--link); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    h1 { font-size: 1.8rem; margin-bottom: 0.5rem; line-height: 1.3; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; margin-bottom: 0.75rem; }
+    h3 { font-size: 1.1rem; margin-top: 2rem; margin-bottom: 0.5rem; }
+    p { margin-bottom: 1rem; }
+    img { max-width: 100%; height: auto; margin: 1.5rem 0; border-radius: 4px; }
+    ul, ol { margin-bottom: 1rem; padding-left: 1.5rem; }
+    li { margin-bottom: 0.3rem; }
+    code {
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.9em;
+      background: color-mix(in srgb, var(--fg) 8%, var(--bg));
+      padding: 0.15em 0.35em;
+      border-radius: 3px;
+    }
+    pre {
+      background: color-mix(in srgb, var(--fg) 8%, var(--bg));
+      padding: 1rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin-bottom: 1rem;
+    }
+    pre code { background: none; padding: 0; }
+    .post-meta { color: var(--muted); font-size: 0.9rem; margin-bottom: 2rem; }
+    .post-list { list-style: none; padding: 0; }
+    .post-list li { margin-bottom: 1.5rem; }
+    .post-list .date { color: var(--muted); font-size: 0.85rem; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="site-title"><a href="/">{{ site.title }}</a></div>
+  </header>
+  <main>
+    {{ content }}
+  </main>
+</body>
+</html>
