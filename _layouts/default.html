@@ -60,6 +60,9 @@
     }
     pre code { background: none; padding: 0; }
     .post-meta { color: var(--muted); font-size: 0.9rem; margin-bottom: 2rem; }
+    .blog-figure-row { display: flex; gap: 1rem; align-items: flex-start; margin: 1.5rem 0; }
+    .blog-figure-row img { flex: 1; min-width: 0; margin: 0; }
+    @media (max-width: 600px) { .blog-figure-row { flex-direction: column; } }
     .post-list { list-style: none; padding: 0; }
     .post-list li { margin-bottom: 1.5rem; }
     .post-list .date { color: var(--muted); font-size: 0.85rem; }
