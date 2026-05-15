@@ -11,11 +11,25 @@ Auto-research systems (agents which design an experiment, run it, and evaluate t
 
 At the front of YAARP's loop sits an *experiment definition*: a structured specification of what is being compared, what is held fixed across every condition, and what would count as the technique holding up. Producing that definition is the first stage of the loop, and because it is structured rather than free-form prose, two specific properties become deterministically checkable. First, the soundness of the definition before any code is written: whether the comparison set is well-formed, whether the metric is named and present in the spec, whether the directional claim is coherent with the comparison structure. Second, the verdict at the back of the loop: given the locked metric and threshold from the definition and the raw numbers from the run, whether the result satisfies the criterion. Both checks are run by deterministic programs rather than by agents.
 
-In between sit implementation and execution. Implementation is where an agent writes the code that operationalizes the definition. Unlike the spec's internal consistency or the verdict's arithmetic, faithful implementation has no formal test, so this step cannot be reduced to a deterministic check. Implementation is therefore made trustworthy a different way: by being structurally constrained up front, so the comparison cannot be broken by the choices an agent makes while filling in the code. Execution then runs the constrained code against the controlled conditions the definition specifies.
+In between sit implementation and execution. Faithful implementation has no formal test, so this step cannot be reduced to a deterministic check. It is made trustworthy a different way: the same structured definition that admits the soundness check also fixes typed obligations on each downstream stage, and the pipeline mechanically checks each stage's output against the obligation it had to satisfy. The hard guarantees sit at the two ends of the chain; the obligations and the conformance checks are the softer scaffolding that runs through the middle.
 
 **design** → implementation → execution → **verdict**
 
-In outline: a technique is submitted; an experiment is designed to test it; agents build it and its variants; the variants run; the results are evaluated mechanically; a report is returned. Two human checkpoints sit at the cost boundaries. We begin with the build, then come back to the design and the verdict at each end.
+In outline: a technique is submitted; an experiment is designed to test it; agents build it and its variants; the variants run; the results are evaluated mechanically; a report is returned. Two human checkpoints sit at the cost boundaries. We begin with the design.
+
+---
+
+## Designing the experiment
+
+![A research agent submits a hypothesis to an Experiment Designer agent which draws on a prior-experiments database and a literature-review pass to produce an Experiment Plan in a small declarative language; the plan is consumed by a pure-function Compiler that either bounces back a structured error to the designer or emits three typed contract artifacts: an Env Harness Contract, a per-entry Factor (technique) Contract, and an Evaluation Contract](/assets/images/how-yaarp-works-design.png)
+
+The structure isn't there for its own sake. It exists so a deterministic check can stand between the agent that writes the design and every stage that consumes it.
+
+The hypothesis arrives at a design agent. It surveys related work and the platform's record of prior experiments, and emits an *experiment plan*: a small declarative spec naming what varies (the *experimental factor*, classified as either *additive* — the baseline is the factor's absence — or *substitutive* — the baseline is a reference method), what is held fixed across every entry, and what would count as the technique holding up. This stage is unapologetically agentic; choosing the comparison set and the metric is judgment, not arithmetic.
+
+The plan is then handed to a *compiler*: a pure function, no model in the loop. Either it rejects the plan with a structured error — confounded factors, missing or incoherent baselines, metrics misaligned with the comparison structure — and the agent retries against the structured code. Or it emits three typed contract artifacts: a *harness contract* fixing what the shared rig must expose (dataset, optimizer, every controlled condition, seeds, the metrics the runs must emit); a *technique contract* per entry fixing the slot each implementor fills (which technique, with which parameters, against which interface); and a *validation contract* fixing the verdict criterion (the metric, the aggregation, the direction, the threshold). Each downstream stage works against only its own contract and is mechanically checked against it.
+
+Declarative experiment languages have been doing a version of this for years in adjacent fields: the design is expressed in a small language, the system compiles it into the artifacts that run, and a checker rejects structurally invalid designs before any data is collected [6]. What such a compiler cannot do is decide whether the design is *interesting* — whether this is the right comparison set, whether the metric measures what the hypothesis claims, whether the hypothesis is worth the model spend. The first human checkpoint sits exactly there, making the calls the structural check cannot. On approval the contracts are materialized as a comparison group plus one entry per condition (in the additive case, one of those entries carries no technique), and implementation begins.
 
 ---
 
@@ -32,20 +46,6 @@ A harness builder writes the harness body and exposes exactly one typed extensio
 A technique implementor cannot subsample the evaluation set or retune a fixed learning rate because it does not own the evaluator or write the harness body. The set of files an entry must produce, and the symbols it can and must export, are determined before the implementor sees the comparison group; the pipeline reconciles each entry's output against that set before letting it advance. Comparability is enforced by the architecture, not asked of the agents [4].
 
 A code reviewer then makes a single pass over all the implementations together, checking that they are mutually consistent and faithful to what was specified. This part is agentic and best-effort: the reviewer covers the parts of "faithful" that resist formal definition, like whether the code reflects what the paper actually claims, not just what the slot's signature requires. A critical finding bounces one entry back for a single re-implementation; a second failure drops it and the comparison proceeds with the remaining entries, since the design's full entry set was declared up front and downstream stages reconcile against that declaration.
-
----
-
-## Designing the experiment
-
-![The Experiment Planner turns a technique description plus a survey of related work into three artifacts: comparison techniques, the experiment definition, and the mechanical-evaluator targets](/assets/images/how-yaarp-works-planner.png)
-
-Every notion of "correct" in the build above is defined relative to the design.
-
-A design agent takes the hypothesis, surveys the related work, and produces three artifacts. The first is the *comparison set*: the techniques the new method will be measured against, plus a baseline, with a classification of the *experimental factor* as either *additive* (baseline is the factor's absence) or *substitutive* (baseline is a reference method). The second is the *experiment definition*: the conditions held fixed across every entry (e.g., dataset, model, training regime, evaluation protocol). The third is a set of directional assertions the mechanical evaluator will later check: statements like "technique X should outperform baseline Y on top-1 accuracy", committed before any experiment code exists.
-
-Together these are a compiled specification, against which the first of the pipeline's deterministic checks runs: the factor classification matches the comparison set, each assertion names a real entry and a real metric, the metric is well-formed against the evaluation protocol.
-
-Past that gate the design hits the first human checkpoint, where a reviewer makes the calls the structural check cannot: is this the right comparison set, is the metric meaningful, is the hypothesis worth the model budget. On approval, the specification is materialized as a comparison group plus one entry per condition (the baseline among them; in the additive case, carrying no technique at all), and downstream stages read and reconcile against it.
 
 ---
 
@@ -137,13 +137,11 @@ comparison-groups/01KN8S9F…/                 # one comparison group = one expe
 
 This artifact trail is a foundation for two things. First, the code: every technique implementation the platform has produced is stored, validated, and paired with the harness it ran against. A queryable store would let a future implementor agent start from a working version of a related technique, not a blank file. Each implementation has already passed the conformance checks for its experiment, so it is a known-good module against a specific harness rather than a snippet pulled from the open internet. Second, the traces: conversation transcripts, code-review findings, run statuses, and verdicts form a labeled record of where the pipeline ran smoothly and where it did not, useful raw material for tuning the pipeline as a whole (prompts, gates, scaffolding) rather than each agent in isolation.
 
-### The open version, and why a DSL
+### The open version
 
-YAARP is wired tightly to its own infrastructure and is not something a third party can clone and run. A from-scratch rebuild ([SMAI](https://github.com/yaarp-org/smai/tree/main)) is in progress: same pipeline shape, modular and infrastructure-agnostic, with the substantive change in how the inter-stage contracts are produced. Today they are derived by the design agent and validated by the structural check at the entry to build; SMAI moves the derivation into a compiler. The experiment is expressed in a small declarative language and the compiler emits the contracts as typed artifacts. What the harness must expose, what a technique implementation may modify, which metric the verdict will read and what threshold it must clear: checkable properties of a typed object, not conventions the code is expected to honor.
+YAARP is wired tightly to its own infrastructure and is not something a third party can clone and run. A from-scratch rebuild ([SMAI](https://github.com/yaarp-org/smai/tree/main)) is in progress: same pipeline shape, modular and infrastructure-agnostic, designed to be deployable on top of whatever metadata store, artifact store, and compute backend a team already runs.
 
-Declarative experiment languages have been doing a version of it for years in adjacent fields: the design is expressed in a small language, the system compiles it into the artifact that runs (statistical tests, a model specification, an assignment procedure), and a checker rejects structurally invalid designs before any data is collected [6]. The consequence in SMAI is that the DSL determines what can be checked downstream: every property pushed from prose into the language is one more thing the pipeline can verify mechanically instead of asking an agent to confirm.
-
-The disclaimer these languages carry applies here too: this is a compiler, not a proof engine. It cannot tell whether the hypothesis is worth testing, whether the metric is meaningful, or whether the directional assertions were the right ones to commit to. The parts of research where that judgement lives (idea generation, novelty, the writeup) are deliberately outside YAARP's scope.
+The disclaimer the design step's compiler carries applies to the whole system: this is a compiler, not a proof engine. It cannot tell whether the hypothesis is worth testing, whether the metric is meaningful, or whether the directional assertions were the right ones to commit to. The parts of research where that judgement lives — idea generation, novelty, the writeup — are deliberately outside the system's scope.
 
 ---
 
