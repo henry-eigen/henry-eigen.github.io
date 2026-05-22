@@ -44,6 +44,7 @@
     img { max-width: 100%; height: auto; margin: 1.5rem 0; border-radius: 4px; }
     ul, ol { margin-bottom: 1rem; padding-left: 1.5rem; }
     li { margin-bottom: 0.3rem; }
+    blockquote { border-left: 3px solid var(--border); padding-left: 1rem; margin: 1.5rem 0; color: var(--muted); font-size: 0.9rem; }
     code {
       font-family: "SF Mono", Menlo, Consolas, monospace;
       font-size: 0.9em;
@@ -60,9 +61,12 @@
     }
     pre code { background: none; padding: 0; }
     .post-meta { color: var(--muted); font-size: 0.9rem; margin-bottom: 2rem; }
+    .post-subtitle { font-size: 1.2rem; font-weight: 400; color: var(--muted); line-height: 1.35; margin-bottom: 0.5rem; }
     .blog-figure-row { display: flex; gap: 1rem; align-items: flex-start; margin: 1.5rem 0; }
     .blog-figure-row img { flex: 1; min-width: 0; margin: 0; }
     @media (max-width: 600px) { .blog-figure-row { flex-direction: column; } }
+    .blog-figure { margin: 1.5rem 0; }
+    .blog-figure figcaption { color: var(--muted); font-size: 0.85rem; line-height: 1.5; margin-top: 0.5rem; }
     .post-list { list-style: none; padding: 0; }
     .post-list li { margin-bottom: 1.5rem; }
     .post-list .date { color: var(--muted); font-size: 0.85rem; }
@@ -70,9 +74,11 @@
   </style>
 </head>
 <body>
+  {% if page.url == '/' %}
   <header>
     <div class="site-title"><a href="/">{{ site.title }}</a></div>
   </header>
+  {% endif %}
   <main>
     {{ content }}
   </main>
