@@ -5,7 +5,7 @@ date: 2026-04-08
 description: "Auto-research agents can explore solution spaces faster than humans. But purely agent-driven approaches lose the structural rigor that pre-defined environments provide: methodology drift, post-hoc selection, inferential breakdowns. Structural verification provides the scaffolding that lets scaled systems be trustworthy."
 ---
 
-*Update, 2026-05-12. Since this post first went up (on 2026-04-08) I've added two items to the [prior and related work](#prior-and-related-work) section. Neither one informed the original post. ARA ([7], Liu et al., 2026) was published after this was written; Curie ([6], Kon, Liu et al., 2025, from some of the same authors) I came across afterward. They belong in the related work and are listed here for completeness and accuracy, not because they shaped the post. Each entry notes how it relates to SMAI. Nothing else in the post has changed.*
+*Update, 2026-05-12. Since this post first went up (on 2026-04-08) two items have been added to the [prior and related work](#prior-and-related-work) section. Neither one informed the original post.*
 
 ## The verifiability tradeoff
 

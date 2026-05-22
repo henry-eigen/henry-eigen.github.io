@@ -1,22 +1,22 @@
 ---
 layout: post
-title: "Drawing the Line on Automated Research"
-subtitle: "Where mechanism ends and agents begin"
+title: "Closing the Inferential Gap in Automated Research"
+subtitle: "Where Mechanism Ends and Agents Begin"
 date: 2026-05-18
-description: "Automated research systems are built by intuition and mimicry, not from the theory of experimental validity. Walking the inferential chain of an experiment link by link, this post locates where mechanical checking ends and agent reasoning must begin."
+description: "Automated research systems need more than better agent orchestration. Here, we argue that their reliability depends on where the research process can be made mechanically checkable, and what machinery can be built into the systems to take advantage."
 ---
 
-## What is auto-research
+## The verifiability surface of research
 
-It is by now a familiar observation that agents perform most effectively in domains with a large verifiability surface, that is, domains in which much of the work can be mechanically checked for correctness. Mathematics is the standard example of a fully verifiable domain where, through autoformalization, an entire proof can be rendered in a formal system and machine-checked. Code is another where, although semantics lie outside the verifiability surface, syntax and form provide enough checkability that agents remain effective. Our interest is primarily in automated research agents, and so this post sets out to explore the verifiability surface of the scientific process itself.
+It is by now a familiar observation that agents perform most effectively in domains with a large verifiability surface, that is, domains in which much of the work can be mechanically checked for correctness. Mathematics is the standard example of a fully verifiable domain where, through autoformalization, an entire proof can be rendered in a formal system and machine-checked. Code is another where, although semantics lie outside the verifiability surface, syntax and form provide enough checkability that agents remain effective. This post asks what the corresponding verifiability surface is for automated science.
 
-Automated research systems task agents with formulating hypotheses, designing experiments to test them, running the experiments, and interpreting the results. These systems tend to fall into one of two categories, distinguished by how much of that process is fixed mechanically and how much is left to the agents' reasoning. 
+Automated research systems task agents with formulating hypotheses, designing experiments to test them, running the experiments, and interpreting the results. These systems tend to fall into one of two categories, distinguished by how much of that process is fixed mechanically in advance, and how much is left to agent reasoning.
 
 In the narrower formulations, a specified baseline and a pre-built grader are provided, removing experiment design and results analysis from the agent's responsibilities. The agent's task then is only to mutate the baseline in order to optimize the score it receives from the grader. Because the grader fixes much of the process mechanically, and in advance, it can act as a strong verifier of the agent’s output. That same fixedness, however, also limits the system, rendering anything the grader was not built to score outside the scope of the agent's exploration.
 
-The more general systems, those we are primarily interested in, delegate the entire process to agents. The agent loop is responsible for selecting baselines, designing experiments, and evaluating the results. A verifiability surface is available to them as well, but it is not so clearly defined as a pre-built grader. More on this below.
+The more general systems, those we are primarily interested in, delegate the entire process to agents. The agent loop is responsible for selecting baselines, designing experiments, and evaluating the results. A verifiability surface is available to them as well, but it is not so clearly defined as a pre-built grader. While grader-based systems get verifiability by narrowing the search space, general auto-research systems find verifiability in the invariant structure of valid experiments.
 
-Among these general systems, none we found tasked a single agent with the end-to-end responsibilities [1]. All decompose the process into a series of phases or tasks, to which specific prompts or specialized agents are assigned. What distinguishes one system from another, their novel contribution, largely concerns how tasks are split amongst agents, if/how agents communicate, how procedural or how open-ended their instructions are, and whether domain knowledge is hardcoded or ingested.
+Existing general systems recognize the need to decompose the research process, but their decompositions are primarily procedural, focused on how tasks are split among agents, how agents communicate, how open-ended their instructions are, and whether domain knowledge is hardcoded or ingested [1]. The question is whether decomposition can instead track the inferential structure of research itself.
 
 
 ## What is it missing
@@ -142,7 +142,7 @@ The check that would settle faithfulness, holding the implementation against the
 
 Finally, the implemented experiment is executed, and its output used to render a verdict. Execution is the one purely mechanical link in the chain, calling for no agent reasoning of its own. The final question, then, is whether the verdict is correct. There are two interpretations of correctness here:
 
-1. Was the verdict correctly calculated using the proper metrics (this question largely overlaps with a third form of validity given by the aforementioned Cook & Campbell, statistical conclusion validity)?
+1. Was the verdict correctly calculated using the proper metrics (this question largely overlaps with a third form of validity given by Cook & Campbell, statistical conclusion validity)?
 2. Is the verdict truly confirming or disconfirming the hypothesis?
 
 In regard to the first, this isn't so much mechanically verified as it is mechanically guaranteed: the design specifies the verdict calculation, and verification has already established that the implementation emits the metrics that calculation requires.

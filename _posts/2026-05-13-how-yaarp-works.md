@@ -1,8 +1,8 @@
 ---
 layout: post
-title: "How SMAI works"
+title: "The Architecture of Mechanized Research"
 date: 2026-05-13
-description: "A walk through SMAI's pipeline as the realization of the companion post's argument: the experiment design compiled and checked before any code is written, implementation bound to the contracts that compilation emits, and a verdict computed mechanically from the design and the raw numbers."
+description: "SMAI separates agent reasoning from scientific verdicts by turning experiment designs into mechanically checkable commitments before any results are observed"
 ---
 
 _This post began as a single piece and has since split into two. The motivating argument now lives in its own post, [found here](/2026/05/18/where-agents-belong.html). That post should be read before this one._
