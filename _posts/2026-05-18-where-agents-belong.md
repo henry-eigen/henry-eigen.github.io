@@ -1,33 +1,36 @@
 ---
 layout: post
-title: "Closing the Inferential Gap in Automated Research"
-subtitle: "Where Mechanism Ends and Agents Begin"
+title: "The Mechanism Boundry in Automated Research"
 date: 2026-05-18
 description: "Automated research systems need more than better agent orchestration. Here, we argue that their reliability depends on where the research process can be made mechanically checkable, and what machinery can be built into the systems to take advantage."
 ---
 
 ## The verifiability surface of research
 
-It is by now a familiar observation that agents perform most effectively in domains with a large verifiability surface, that is, domains in which much of the work can be mechanically checked for correctness. Mathematics is the standard example of a fully verifiable domain where, through autoformalization, an entire proof can be rendered in a formal system and machine-checked. Code is another where, although semantics lie outside the verifiability surface, syntax and form provide enough checkability that agents remain effective. This post asks what the corresponding verifiability surface is for automated science.
+Agents perform most effectively in domains with a large verifiability surface, where much of the output can be mechanically checked for correctness. Mathematics is often presented as a best case, where, through autoformalization, an entire proof can be rendered in a formal system and machine-checked. Code is another where, although semantics can lie outside the verifiability surface, syntax and form provide enough checkability that agents remain effective. 
 
-Automated research systems task agents with formulating hypotheses, designing experiments to test them, running the experiments, and interpreting the results. These systems tend to fall into one of two categories, distinguished by how much of that process is fixed mechanically in advance, and how much is left to agent reasoning.
+Scientific research has no equally obvious surface. An automated research system does not merely output a hypothesis and a verdict, but also the design of the experiment which connects them, the implementation and execution of that experiment, and the interpretation of its results in order to render a verdict. A flaw in any of these intermediate outputs undermines the verdict's inferential weight. The verdict depends on a correct interpretation of the results, which themselves depend on the execution of the experiment, which depends on a faithful implementation. And the implementation depends on whether the design actually operationalizes the hypothesis.
 
-In the narrower formulations, a specified baseline and a pre-built grader are provided, removing experiment design and results analysis from the agent's responsibilities. The agent's task then is only to mutate the baseline in order to optimize the score it receives from the grader. Because the grader fixes much of the process mechanically, and in advance, it can act as a strong verifier of the agent’s output. That same fixedness, however, also limits the system, rendering anything the grader was not built to score outside the scope of the agent's exploration.
-
-The more general systems, those we are primarily interested in, delegate the entire process to agents. The agent loop is responsible for selecting baselines, designing experiments, and evaluating the results. A verifiability surface is available to them as well, but it is not so clearly defined as a pre-built grader. While grader-based systems get verifiability by narrowing the search space, general auto-research systems find verifiability in the invariant structure of valid experiments.
-
-Existing general systems recognize the need to decompose the research process, but their decompositions are primarily procedural, focused on how tasks are split among agents, how agents communicate, how open-ended their instructions are, and whether domain knowledge is hardcoded or ingested [1]. The question is whether decomposition can instead track the inferential structure of research itself.
+This creates a reflexive problem. The system is not only testing a hypothesis, it is also testing whether the experimental apparatus it constructed is itself a valid test of that hypothesis. In human science, confidence in the experimental apparatus is distributed across background theory, instrumentation, calibration, controls, disciplinary convention, and expert judgment. In an automated system, such stabilizers must either be made explicit, or implicitly left to be absorbed into agent judgment. The degree to which the apparatus can be made explicit, constrained, and mechanically checkable defines the verifiability surface of automated research.
 
 
-## What is it missing
+## Two ways to get verifiability 
 
-Setting aside prompt context, there is little in the machinery of these systems which is specific to the shape of scientific research, as opposed to agent orchestration work in general [2].
+One way to get verifiability is to narrow the scope of the system. A common formulation of automated research systems, which we'll refer to as “hill-climbers”, specifies a baseline, provides a pre-built grader, and then tasks agents with mutating the baseline in order to improve the grader’s score. By removing experiment design and results analysis from the agents' responsibilities, these systems provide a strong verifiability surface by moving much of the epistemic burden onto pre-specified components. Because the grader fixes much of the process mechanically and in advance, it can serve as a strong verifier of the agent’s output. But the same fixedness limits the system. Anything the grader was not built to score remains outside the scope of the agent’s exploration.
 
-This is not for want of a body of theory to build on. A long tradition of work on experimental design and validity methodology offers a strong foundation upon which to build such machinery. These bodies of work seem largely neglected by the prominent auto-research systems however; a scan of the works cited sections of several uncovered nearly no references to works in the philosophy of science concerning statistical validity, experiment design, causal inference.
+General auto-research systems, by contrast, do not restrict themselves to a fixed task. Instead, they delegate the entire research process to agents, who are responsible for hypothesis generation, experiment design, implementation and execution, and interpretation of results. In the absence of a provided verifiability surface in the form of a grader, these systems must find verifiability in the invariant structure of valid experiments. Doing so requires designing the system to expose this structure in the first place, thereby making it a mechanically checkable surface against which intermediate outputs can be validated. Existing systems do generally decompose the research process, but their decompositions are primarily procedural, focused on how tasks are split among agents, how open-ended their instructions are, and whether domain knowledge is hardcoded or ingested [1].
+
+This post asks how much of that surface can be exposed. The [following post](/2026/05/13/how-yaarp-works.html) will propose a design framework for exploiting this surface, so that automated research systems can make stronger claims about the verdicts they render on hypotheses.
+
+## The missing machinery
+
+The architectures of existing automated research systems describe how agents move work through workflows resembling the stages of the scientific method. But they say little about how those workflows preserve the validity conditions by which an experiment can bear on a hypothesis. Setting aside the agents’ prompt context, little in the machinery of these systems is specific to scientific research, as opposed to agent orchestration work in general [2].
+
+This is not for want of a body of theory to build on. A long tradition of work on experimental design and validity methodology offers a strong foundation upon which to build such machinery. These bodies of work seem largely neglected by the prominent auto-research systems however. A scan of the works cited sections of several such systems uncovered sparing references to works in the philosophy of science concerning topics such as statistical validity, experiment design, or causal inference.
 
 This would be a pedantic complaint if the performance of these systems suggested they had little to benefit from such grounding. But common failure points identified by audits [3, 4] of these systems suggest otherwise. Issues surfaced by these audits include unvaried factor levels, post-hoc selection bias, failure to isolate control factors, etc. These are exactly the types of issues which structural machinery can catch mechanically.
 
-There is a deeper pattern beneath these failures. While these systems typically structure their pipelines into a set of phases roughly mapping to the stages in the scientific process, they seem to do so more as a means of organizing the agent tasks. The stages are treated as steps in a workflow, rather than links in the inferential chain, by which experimental results are able to render a verdict on the hypothesis.
+It is expected that, over the course of a long running, multifaceted task, individaul agents may make mistakes. The more important failure occurs when these mistakes go unchecked, allowing them to undermine work in subsquent stages. This is symptomatic of a system design in which validity is carried largely by prompt context and agent judgment. What is missing is an explicit representation of the inferential chain connecting hypothesis, design, implementation, execution, metrics, and verdict. 
 
 
 <figure class="blog-figure">
