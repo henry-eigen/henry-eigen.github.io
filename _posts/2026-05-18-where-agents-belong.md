@@ -113,7 +113,7 @@ As we did before, we'll consider the two separate interpretations of "faithful,"
 - **Verification** is concerned with the implementation's adherence to the explicit specifications of the design. That is, whether there is an implementation for each technique, whether each of these emits correctly labeled and shaped metrics, whether each plugs into a shared harness which purportedly implements the controlled conditions, etc.
 - **Validation** asks whether the implementations are faithful to the methods which the design intends them to be.
 
-In terms of verification, the formulation of the DSL determines the degree to which structural questions are explicitly answered in the design, and therefore the surface area for mechanical checkability. Typically though, even the lighter-weight DSLs surveyed can compile into an interface against which type definitions, data models, and AST-level parsing can be checked.
+In terms of verification, the formulation of the DSL determines the degree to which structural questions are explicitly answered in the design, and therefore the surface area for mechanical checkability. This pattern, declarative specification compiled into an artifact against which code is mechanically checked, is well-trodden ground. It traces at least to Meyer's Design by Contract [10] and surfaces today in interface description languages like Protocol Buffers and in content-addressed build systems like Nix. The verification we ask for here sits in that contract-checking tier, not in the heavier verification-language tier (Liquid Haskell, F*, Dafny, TLA+) where richer invariants are statically proven.
 
 Validation, on the other hand, asks whether the implementations are faithful to the design's intent. Even generally speaking, in terms of SWE tasks, this validation is relegated to a code reviewer agent, since "intent" is very much a reasoning-space concept.
 
@@ -173,3 +173,4 @@ Early on we observed that many of the existing auto-research systems lacked mach
 7. [PLanet: Formalizing Assignment Procedures in the Design of Experiments](https://arxiv.org/abs/2505.09094)
 8. [On Testing Non-testable Programs](https://ics.uci.edu/~dfredmil/ics221-FQ03/papers/Wey82.pdf)
 9. [Changing Order: Replication and Induction in Scientific Practice](https://press.uchicago.edu/ucp/books/book/chicago/C/bo3623576.html)
+10. [Applying 'Design by Contract' (Bertrand Meyer, 1992)](https://se.inf.ethz.ch/~meyer/publications/computer/contract.pdf)
