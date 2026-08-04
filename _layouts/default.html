@@ -73,7 +73,16 @@
     .post-list .date { color: var(--muted); font-size: 0.85rem; }
     .post-list .description { color: var(--muted); font-size: 0.9rem; line-height: 1.5; margin: 0.3rem 0 0; }
     hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+    table { border-collapse: collapse; margin: 1.5rem auto; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+    th { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; text-align: left; padding: 0.4rem 0.9rem; border-bottom: 2px solid var(--fg); }
+    td { padding: 0.4rem 0.9rem; border-bottom: 1px solid var(--border); }
+    caption { caption-side: top; font-size: 0.78rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); text-align: left; padding-bottom: 0.3rem; }
+    .table-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0 1.5rem; align-items: start; }
+    .table-note { color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
   </style>
+  {% if page.mathjax %}
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+  {% endif %}
 </head>
 <body>
   {% if page.url == '/' %}
