@@ -3,6 +3,8 @@ layout: post
 title: "Use the LLM to Build Your Simulator, Not to Be Your Simulator"
 date: 2026-08-03
 mathjax: true
+citation: true
+citation_key: eigen2026simulator
 description: "LLM-based population simulation usually means sampling personas at inference time. We distill the LLM's response surface into a small log-linear model once, calibrate its absolute rates against observed toplines, and answer every later subgroup question offline."
 ---
 

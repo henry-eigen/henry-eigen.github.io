@@ -32,9 +32,18 @@
       max-width: var(--max-w);
       margin: 0 auto;
     }
-    header { margin-bottom: 3rem; }
-    header .site-title { font-size: 1.1rem; font-weight: 600; }
+    header.site-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--bg);
+      margin: -2rem -1.5rem 2.5rem;
+      padding: 0.85rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    header .site-title { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; }
     header .site-title a { color: var(--fg); text-decoration: none; }
+    header .site-title a:hover { text-decoration: none; }
     a { color: var(--link); text-decoration: none; }
     a:hover { text-decoration: underline; }
     h1 { font-size: 1.8rem; margin-bottom: 0.5rem; line-height: 1.3; }
@@ -68,10 +77,22 @@
     @media (max-width: 600px) { .blog-figure-row { flex-direction: column; } }
     .blog-figure { margin: 1.5rem 0; }
     .blog-figure figcaption { color: var(--muted); font-size: 0.85rem; line-height: 1.5; margin-top: 0.5rem; }
-    .post-list { list-style: none; padding: 0; }
-    .post-list li { margin-bottom: 1.5rem; }
-    .post-list .date { color: var(--muted); font-size: 0.85rem; }
-    .post-list .description { color: var(--muted); font-size: 0.9rem; line-height: 1.5; margin: 0.3rem 0 0; }
+    .home-intro { margin-bottom: 2.5rem; }
+    .home-intro .twitter-link { color: var(--fg); }
+    .home-intro .twitter-link:hover { color: var(--link); }
+    .post-card {
+      display: block;
+      background: color-mix(in srgb, var(--fg) 5%, var(--bg));
+      border-radius: 10px;
+      padding: 1.5rem 1.75rem;
+      margin-bottom: 1.5rem;
+      color: var(--fg);
+      text-decoration: none;
+    }
+    .post-card:hover { background: color-mix(in srgb, var(--fg) 9%, var(--bg)); text-decoration: none; }
+    .post-card h2 { margin-top: 0; margin-bottom: 0.6rem; }
+    .post-card .description { color: var(--muted); font-size: 0.92rem; line-height: 1.55; margin-bottom: 0.9rem; }
+    .post-card .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 0; }
     hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
     table { border-collapse: collapse; margin: 1.5rem auto; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
     th { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; text-align: left; padding: 0.4rem 0.9rem; border-bottom: 2px solid var(--fg); }
@@ -85,11 +106,9 @@
   {% endif %}
 </head>
 <body>
-  {% if page.url == '/' %}
-  <header>
+  <header class="site-header">
     <div class="site-title"><a href="/">{{ site.title }}</a></div>
   </header>
-  {% endif %}
   <main>
     {{ content }}
   </main>
