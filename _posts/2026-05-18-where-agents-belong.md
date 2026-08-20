@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "The Mechanism Boundry in Automated Research"
+title: "The Mechanism Boundary in Automated Research"
 date: 2026-05-18
 description: "Automated research systems need more than better agent orchestration. Here, we argue that their reliability depends on where the research process can be made mechanically checkable, and what machinery can be built into the systems to take advantage."
 ---

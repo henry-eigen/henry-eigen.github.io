@@ -8,21 +8,21 @@ citation_key: eigen2026simulator
 description: "LLM-based population simulation usually means sampling personas at inference time. We distill the LLM's response surface into a small log-linear model once, calibrate its absolute rates against observed toplines, and answer every later subgroup question offline."
 ---
 
-In recent years, LLMs have been explored as a promising augmentation to, or outright stand-in for, human-provided survey data. The hope is that they learn enough of the latent structure of human behavior and preferences to simulate the responses of given profiles, which can then be aggregated to model the behavior of a group.
+In recent years, LLMs have been explored as a promising augmentation to, or outright stand-in for, human-provided survey data. The hope is that they capture enough of the latent structure of human behavior and preferences to simulate the responses of given profiles, which can then be aggregated to model the behavior of a group.
 
-Such approaches have several drawbacks. Simulating a group requires sampling many profiles, and every new group analyzed demands a distinct sample, each adding to the inference cost. Additionally, while LLMs demonstrate a rich relative geometry of human behavior, they struggle to quantify absolute probabilities.
+Such approaches have several drawbacks. Simulating a group through direct prompting or persona sampling requires repeated inference, incurs runaway query costs, and is vulnerable to mode collapse. Furthermore, while LLMs demonstrate a rich relative geometry of human behavior, they struggle to quantify absolute baseline probabilities due to prior bias.
 
-In this post, we factor group modeling into population composition and a behavioral response field, distill the LLM's response surface into a reusable log-linear model, and calibrate its probability estimates with minimal ground-truth data. This makes LLM inference a one-time, up-front cost, subsequently allowing us to inspect arbitrary slices of the population offline.
+In this post, we factor population modeling into population composition and a conditional response model, distill the LLM's conditional distribution into a reusable, offline log-linear student policy, and calibrate its baseline level with minimal ground-truth data. This makes LLM inference a one-time, up-front distillation cost, subsequently allowing us to inspect and simulate arbitrary slices of the population offline.
 
-Separating these tasks lets us use the LLM for its most reusable contribution, the structure of how behavior varies between profiles. Observed outcomes anchor its absolute probabilities, while the population model supplies the composition of each target group.
+Separating these tasks lets us use the LLM for the relative structure of how behavior varies between profiles. Observed aggregate marginals anchor its absolute probabilities, while the population model supplies the composition of each target group.
 
 ## 1. What Is Population Simulation?
 
-We are interested in answering questions like *How will retired men in Texas vote?* or *What will unmarried women aged 21&ndash;35 buy?*
+We are interested in answering questions like *How will retired men in Texas vote?* or *What will unmarried women aged 21-35 buy?*
 
 To do so, we decompose the modeling of a target subpopulation $$\mathcal S$$ into two underlying questions:
 
-1. How do people with attributes $$x$$ respond? For a mutually exclusive response option $$r$$, define the cell-level response field as $$B_r(x) := P(Y{=}r \mid X{=}x)$$.
+1. How do people with attributes $$x$$ respond? For a mutually exclusive response option $$r$$, define the cell-level conditional response distribution (or student policy) as $$B_r(x) := \pi(Y{=}r \mid X{=}x)$$.
 2. Who makes up the subpopulation? Let $$\mathcal S$$ denote the set of population cells matching the subgroup definition, and let $$P_{\mathcal S}(x) := P(X{=}x \mid X \in \mathcal S)$$ denote their distribution within it.
 
 Combining the two, the expected share of a subpopulation choosing response $$r$$ is the population-weighted average of its cell-level response rates:
@@ -85,7 +85,11 @@ Combining the table with the normalization above gives
 
 $$B(x) = \operatorname{softmax}(\mathbf{x}W^\top + b).$$
 
-This form is multinomial logistic regression. We elicit response distributions for a designed set of persona cells from the LLM oracle and use those reads as training targets to fit $$B(x)$$. How many elicited cells the fit needs is the subject of Section 4.
+This form is multinomial logistic regression. We treat the LLM as an oracle teacher $$\pi_{LLM}(\cdot \mid x)$$ that returns a full probability distribution over response options for any given profile prompt. To fit our student policy $$B(x)$$, we query the oracle across a training set of $$N$$ persona states $$x^{(i)}$$ and minimize the empirical forward KL divergence:
+
+$$\pi^* = \arg\min_\pi \frac{1}{N} \sum_{i=1}^N \operatorname{KL}\big(\pi_{LLM}(x^{(i)}) \,\|\, \pi(x^{(i)})\big)$$
+
+Because the oracle returns complete soft distributions over all response categories rather than single discrete samples, minimizing forward KL is equivalent to minimizing soft-label cross-entropy. How many queried profile states the fit needs is the subject of Section 4.
 
 <img src="/assets/images/build-your-simulator-f6-elicit-distill.png" width="720" style="display:block;margin:1.5rem auto;" alt="How the response model is built: eliciting a distribution for one designed cell, then fitting one additive effects table to all the reads">
 
@@ -171,9 +175,11 @@ A Spearman correlation of 0.82 indicates strong agreement between the model's ra
 
 For the binary evaluation reported here, the predicted probability is monotone in the log odds between the two responses. Taking $$r_0$$ as the reference response,
 
-$$\log \frac{B_r(x)}{B_{r_0}(x)} = (b_r - b_{r_0}) + \sum_j \left[\,w_r(a_j) - w_{r_0}(a_j)\,\right].$$
+$$\log \frac{B_r(x)}{B_{r_0}(x)} = (b_r - b_{r_0}) + \sum_j \left[\,w_r(a_j) - w_{r_0}(a_j)\,\right] = \alpha_r + \sum_j \sum_{v \in \text{vals}(A_j) \setminus \{v_{j,0}\}} \beta_{j,v,r} \cdot \mathbf{1}[a_j = v]$$
 
-The baseline contrast is constant across groups, so their ordering is determined by the attribute effects in $$W$$. The correlation therefore suggests that the model (and, by extension, the LLM from which it was distilled) has learned a substantial part of the relative geometry of the group-behavior space, narrowing the source of the remaining error.
+where $$\alpha_r = b_r - b_{r_0}$$ represents the baseline log-odds intercept for response $$r$$ and $$\beta_{j,v,r}$$ are the identified attribute-effect contrasts relative to reference category levels $$v_{j,0}$$.
+
+The baseline contrast is constant across groups, so their ordering is determined entirely by the attribute effects in $$W$$ (or $$\beta$$). The correlation therefore suggests that the model (and, by extension, the LLM from which it was distilled) has learned a substantial part of the relative geometry of the group-behavior space, narrowing the source of the remaining error.
 
 ### 6.2 A baseline diagnostic
 
@@ -226,6 +232,8 @@ Across these two evaluations, the consistent result is that the anchor turns the
 
 Because CES supplies one rate for a binary outcome while GSS supplies a distribution over several response options, the difference between their results should not be interpreted as a clean dataset or domain effect.
 
-The LLM's reusable contribution is the relative structure encoded in $$W$$, not a population of sampled respondents or a trustworthy absolute baseline. We elicit that structure once, anchor it with observed outcomes, and combine it with an explicit population frame. Every later subgroup estimate is then deterministic arithmetic outside the LLM.
+The LLM's reusable contribution is the relative conditional structure encoded in $$W$$, not a population of sampled respondents or a trustworthy absolute baseline. We distill that structure once into an offline parametric student, calibrate its baseline level with observed aggregate marginals, and evaluate it over an explicit population frame. Every subsequent subgroup query is then fast, deterministic arithmetic with zero marginal LLM calls.
 
-In these experiments, the population frame is borrowed from real microdata. Building that frame when no complete population joint exists is the remaining half of the simulator.
+In this post, we evaluated this conditional distillation on single survey outcomes, borrowing the demographic context $$X$$ directly from observed human microdata.
+
+In practice, however, complete joint microdata across dozens of interacting demographic, behavioral, and attitudinal attributes rarely exists. If we want to simulate realistic, coherent populations across complex multi-variable profiles, we cannot rely on external datasets to supply the full joint distribution. We must generate that joint distribution ourselves. In [the next post](/2026/08/19/distilled-conditional-bayesian-networks.html), we show how to factorize the entire population joint into a sequence of the very same conditional models we just built, chaining them into an autoregressive **Distilled-Conditional Bayesian Network (DisCo-BN)** that generates rich, coherent synthetic populations with no compounding rollout drift.
