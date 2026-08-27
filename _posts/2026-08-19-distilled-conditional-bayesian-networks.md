@@ -72,11 +72,11 @@ s_t = (a_c, a_1, \ldots, a_{t-1})
 \quad \rightarrow \quad s_{t+1} = (a_c, a_1, \ldots, a_{t-1}, a_t)
 $$
 
-<img src="/assets/images/distilled-conditional-bayesian-networks-inference-plain.svg" width="432" style="display:block;margin:1.5rem auto;" alt="Forward sampling through the network, each node drawing its value from its local conditional given the instantiated values of its parents">
-
 Drawing each attribute sequentially from its local conditional produces a completed sequence that is mathematically equivalent to a direct draw from the joint conditional distribution
 
 $$s_n \sim P(A_1, \dots, A_n \mid A_c)$$
+
+<img src="/assets/images/distilled-conditional-bayesian-networks-inference-plain.svg" width="720" style="display:block;margin:1.5rem auto;" alt="Forward sampling through the network, each node drawing its value from its local conditional given the instantiated values of its parents">
 
 ---
 
