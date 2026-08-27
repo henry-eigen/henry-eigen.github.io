@@ -23,9 +23,11 @@ It is generally observed that they perform much more reliably as suppliers of co
 This means that the LLM alone can be used as a general response model to independent questions. But it cannot, by itself, be used as a simulator of multiple responses for an individual, where the dependencies between responses are non-trivial or even the primary object of interest. For example, if we predict each response separately: 
 
 $$
-a_1 \sim P(\text{universal healthcare view} \mid \text{individual}),
-\quad a_2 \sim P(\text{wealth inequality view} \mid \text{individual}),
-\quad a_3 \sim P(\text{voting behavior} \mid \text{individual}), 
+\begin{aligned}
+a_1 &\sim P(\text{universal healthcare view} \mid \text{individual}),
+\newline a_2 &\sim P(\text{wealth inequality view} \mid \text{individual}),
+\newline a_3 &\sim P(\text{voting behavior} \mid \text{individual})
+\end{aligned}
 $$
 
 we implicitly assume that an individual's views on wealth inequality and universal healthcare are completely independent of how they vote. Such an assumption undermines the utility of a simulator, both for generating realistic individual profiles and for conducting population-level analysis. In analysis, we want to understand how beliefs and behaviors cluster together, or how a shift in sentiment on one topic would affect support for another. To capture these relationships, we must be able to simulate sequences of attributes that are coherent over the joint conditional distribution:
