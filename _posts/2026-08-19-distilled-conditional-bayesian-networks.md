@@ -90,36 +90,22 @@ As to the latter however, the non-existence of such fully observed data is the e
 
 Crucially, unlike standard estimation, where the same dataset of joint observations serves the entire network, our LLM queries produce targets specific to one conditional distribution at a time. Because we are providing the LLM values for a specific set of attributes as context, and requesting distributions for a specific attribute in response, data elicited to train one node cannot be recycled to then train another. Our distillation loop therefore involves separately eliciting data for, and fitting each node's function.
 
-For each node $$t$$, we generate a batch of training inputs $$s_t^{(i)}$$, each comprising one value for each of the node's conditioning attributes. For each input, we then elicit from the LLM a probability distribution over possible values for the node's attribute, and treat this as the training target $$y^{(i)}$$. We then use these training inputs and targets to learn our function parameters $$\theta$$ by minimizing the forward KL divergence from the elicited distributions to our model's distributions:
-
-$$
-\theta
-=
-\arg\min_{\theta}
-\frac{1}{N}\sum_{i=1}^{N}
-D_{\mathrm{KL}}\!\left(
-y^{(i)}
-\,\Vert\,
-\pi_t(s_t^{(i)} ; \theta)
-\right)
-$$
+For each node $$t$$, we generate a batch of training inputs $$s_t^{(i)}$$, each comprising one value for each of the node's conditioning attributes. For each input, we then elicit from the LLM a probability distribution over possible values for the node's attribute, and treat this as the training target $$y^{(i)}$$. We then use these training inputs and targets to learn our function parameters $$\theta$$ by minimizing the forward KL divergence from the elicited distributions to our model's distributions.
 
 <img src="/assets/images/distilled-conditional-bayesian-networks-fitting-node.svg" width="720" style="display:block;margin:1.5rem auto;" alt="Fitting a single node, eliciting a target probability distribution from the LLM at each training state and minimizing forward KL divergence to the node's model">
 
 ### Considerations
 
-At a high level, building our full Bayesian network appears to be a simple matter of repeating this distillation process for every node in the graph. In practice, however, translating this abstract single-node loss into an end-to-end generative simulator is not quite so straightforward. The objective above takes several critical ingredients for granted: it assumes we know which training inputs to sample, how to parameterize the function $$\pi_t$$, and how to trust the resulting numbers. In the sections that follow, we focus on three practical considerations that make this problem interesting:
+At a high level, building our full Bayesian network appears to be a simple matter of repeating this distillation process for every node in the graph. In practice, however, translating this abstract single-node loss into an end-to-end generative simulator is not quite so straightforward. In the following sections, we discuss, in more detail, the three practical considerations underpinning this approach:
 
-* **1. Where do the training contexts come from?**  
-  Because the LLM is an unconstrained oracle, we could theoretically prompt it with *any* arbitrary combination of conditioning attributes. But with a finite query budget and an imperfectly fitted model, we want to train $$\pi_t$$ on the specific parent configurations $$P(A_c, A_1, \ldots, A_{t-1})$$ the simulator will actually encounter during generation. This creates an apparent chicken-and-egg problem: we need samples from the joint distribution to train the conditional functions, but we are learning the conditional functions precisely to define that joint distribution. In **On-Policy Forward Training**, we show how building the network sequentially resolves this circularity.
+* **Where do the training contexts come from?**  
+  Because the LLM is an unconstrained oracle, we could theoretically prompt it with any arbitrary combination of conditioning attributes. But with a finite query budget and an imperfectly fitted model, we want to train $$\pi_t$$ on the specific parent configurations $$P(A_c, A_1, \ldots, A_{t-1})$$ the simulator will actually encounter during generation. This creates an apparent chicken-and-egg problem, in that we need samples from the joint distribution to train the conditional functions, but we are learning the conditional functions precisely to define that joint distribution. In **On-Policy Forward Training**, we show how building the network sequentially resolves this circularity.
 
-* **2. What functional form should $$\pi_t$$ take?**  
-  In theory, any expressive function approximator capable of fitting the training data could serve as a node. However, our end goal is not a black-box predictor, but an interactive simulator whose conditional relationships remain transparent, inspectable, and steerable. In **The Node as a Simulation Control Surface**, we discuss how to parameterize $$\pi_t$$ so that its fitted parameters double as intuitive simulation levers.
+* **What functional form should $$\pi_t$$ take?**  
+  In theory, any expressive function approximator capable of fitting the training data could serve as a node. However, our end goal is not a black-box predictor, but an interactive simulator, whose conditional relationships remain transparent, inspectable, and steerable. In **The Node as a Simulation Control Surface**, we discuss how to parameterize $$\pi_t$$ so that its fitted parameters double as a manipulable control plane.
 
-* **3. How do we ensure the simulation reflects reality?**  
-  Our goal is not simply to replicate the LLM. While we rely on the model's conditional judgments as provisional *association structure* where observational records are missing, LLMs can be poorly calibrated on absolute base rates. In **Grounding the Levels**, we explore how to separate the LLM's relational patterns from real-world aggregate data, anchoring the simulator's population-level responses to measured evidence.
-
-The targets themselves are straightforward to obtain: the LLM will return a probability distribution for any context we supply. The most immediate open question is how to generate those contexts in the first place.
+* **How do we ensure the simulation reflects reality?**  
+  While we rely on the model's conditional judgments as provisional association structure where observational records are missing, LLMs can be poorly calibrated on absolute base rates. In **Grounding the Levels**, we explore how to separate the LLM's relational patterns from real-world aggregate data, anchoring the simulator's population-level responses to available ground truth evidence.
 
 ---
 
@@ -181,7 +167,7 @@ For a node with $$K_t$$ possible values, its parameter count grows linearly with
 
 $$\text{Parameters}(\pi_t) = (K_t - 1)\left[1 + d_c + \sum_{j \in \operatorname{Pa}(t)}(K_j - 1)\right],$$
 
-where $$d_c$$ is the encoded dimension of the context attributes. Across the full network, parameter growth follows the number of edges: quadratic in the worst-case complete DAG, but linear for a sparse graph with bounded in-degree. Let $$p = 1 + d_c + \sum_{j \in \operatorname{Pa}(t)}(K_j - 1)$$ be the conditional's design dimension. Because each oracle query returns the complete response distribution, one query supplies $$K_t - 1$$ independent soft targets. In our experiments, projection loss typically stabilized once the number of queried states reached a small multiple of $$p$$, roughly $$2p$$. This is an empirical planning heuristic rather than a universal guarantee.
+where $$d_c$$ is the encoded dimension of the context attributes. Across the full network, parameter growth is quadratic in the worst-case complete DAG, but linear for a sparse graph with bounded in-degree. Let $$p = 1 + d_c + \sum_{j \in \operatorname{Pa}(t)}(K_j - 1)$$ be the conditional's design dimension. Because each oracle query returns the complete response distribution, one query supplies $$K_t - 1$$ independent soft targets. In our experiments, projection loss typically stabilized once the number of queried states reached a small multiple of $$p$$, roughly $$2p$$. This is an empirical planning heuristic rather than a universal guarantee.
 
 ## Conclusion
 
