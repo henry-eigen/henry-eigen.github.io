@@ -8,40 +8,142 @@ citation_key: eigen2026disco
 description: "LLMs supply conditional structure but make poor coherent generators. We distill their conditionals, node by node, into an offline Bayesian network that generates arbitrarily large coherent synthetic populations after a one-time distillation cost."
 ---
 
+## Summary
+
+In [the previous post](/2026/08/03/build-your-simulator.html), we demonstrated that much of the structure of an LLM's simulated responses for individuals can be captured by a linear, main-effects model, enabling sample-efficient distillation of LLM-estimated conditional probability distributions into lightweight, offline models. In this post, we show how this technique can be applied to build complex simulators of coherent, multi-attribute behaviors. While LLMs cannot reliably generate multi-attribute synthetic individuals in one shot, frequently suffering from mode collapse and failing to capture joint dependencies, they serve as effective suppliers of univariate conditional distributions. We propose the **Distilled-Conditional Bayesian Network (DisCo-BN)**, a framework for building offline simulators from LLM-provided priors by factorizing multi-attribute profiles into a Bayesian network, whose nodes we distill from the LLM elicited priors. After a one-time, upfront distillation cost, the resulting network can generate arbitrarily large volumes of coherent synthetic microdata entirely offline. Furthermore, because each node retains an explicit parametric form, the simulator can be calibrated to known ground-truth marginals for empirical grounding, or steered toward target marginals for counterfactual simulation.
+
+---
+
+## 1. Response Model vs Simulator
+
 In recent years, LLMs have increasingly been explored as a viable source of behavioral priors where attributes of interest are either not jointly observed, or are unobserved altogether in microdata. The hope is that LLMs capture enough of the latent structure of human behavior and preferences that, when queried with sufficient context on an individual, the LLM can, to a widely debated extent, reason about the individual's beliefs and intentions, and correspondingly make predictions about the individual's behaviors. 
 
-It's generally been observed that they perform much more reliably as conditionals than as joint distributions. That is, they perform strongest when asked to simulate the responses for a single specified question, given conditioning context. And correspondingly, they struggle greatly with generating sequences of responses, both in terms of coherence within the response and variance across responses. In order to create rich synthetic populations, we need a way to assemble those conditionals to produce a joint model, without which we have no choice but to treat any simulated data as mutually independent. This reduces, in a sense, the LM to being a response model rather than a supplier of the structure needed to build synthetic populations. 
+It is generally observed that they perform much more reliably as suppliers of conditional distributions than they do as suppliers of samples from a joint distribution. That is, they can effectively predict an individual's response to a single question given conditioning context on that individual. But when tasked with generating a sequence of responses for an individual, LLMs struggle with supplying coherence within sequences, as well as supplying variance between sequences.
 
-### Distilled-Conditional Bayesian Network
-
-In this post, we introduce a method for constructing an offline Distilled-Conditional Bayesian Network (DisCo-BN) by distilling the LLM-supplied conditional structure into a series of log-linear models. The resulting network can generate arbitrarily large amounts of coherent synthetic microdata after a one-time, upfront LLM distillation cost. Our distilled model allows us to generate individuals whose attributes are coherent across all LLM-provided conditionals. It can also be calibrated to known marginals in order to ensure our generated populations are representative.
-
-
-## From conditionals to a joint
-
-How do we obtain a joint that was never jointly observed? We may attempt to do so the same way we got our conditionals via the LLM. Just as we elicited a verbalized univariate conditional from the LLM, we might try to elicit a verbalized joint conditional. Because joint conditional distributions are Cartesian products of the attribute levels, though, this quickly becomes infeasible as parameter counts grow exponentially with more attributes. To get around this, we can use the chain rule of probability to factorize a joint conditional distribution into a series of univariate conditional distributions, avoiding the combinatorial explosion 
-
-$$P(A_1, A_2, \dots, A_n \mid A_c) = \prod_{i=1}^n P(A_i \mid A_1, \dots, A_{i-1}, A_c)$$
-
-We can represent this decomposition as a Bayesian network, which is just to say a directed graph where each node corresponds to an attribute conditioned on the nodes with edges into it. We fix an ordering of the attributes, and each node $$t$$ keeps as its parent set $$\operatorname{Pa}(t)$$ whichever earlier attributes, along with the context $$A_c$$, it conditions on. Each factor then reduces to $$P(A_t \mid \operatorname{Pa}(t))$$, and the network's joint distribution is the product of these local conditionals. Omitting an edge asserts a conditional independence between two attributes.
-
-Given some initial conditioning values $$A_c$$, we can perform forward sampling through the graph to generate full sequences of values. This procedure involves traversing the nodes in order, and instantiating a value at each node along the way by sampling the conditional probability distribution for that node's attribute given the instantiated values of its parents. A full traversal through the graph then accumulates a value for each attribute.
-
-At step t, we define the sampling state $$s_t$$ as the sequence of values instantiated so far, beginning with the initial context. Generating a synthetic record is therefore a sequential rollout where, at each step $$t$$
+This means that the LLM alone can be used as a general response model to independent questions. But it cannot, by itself, be used as a simulator of multiple responses for an individual, where the dependencies between responses are non-trivial or even the primary object of interest. For example, if we predict each response separately: 
 
 $$
-s_t = (a_c, a_1, a_2, \ldots, a_{t-1}) 
-\quad \rightarrow \quad a_t \sim P(A_t \mid \operatorname{Pa}(t)) 
-\quad \rightarrow \quad s_{t+1} = (s_t, a_t)
+a_1 \sim P(\text{universal healthcare view} \mid \text{individual}),
+\quad a_2 \sim P(\text{wealth inequality view} \mid \text{individual}),
+\quad a_3 \sim P(\text{voting behavior} \mid \text{individual}), 
+$$
+
+we implicitly assume that an individual's views on wealth inequality and universal healthcare are completely independent of how they vote. Such an assumption undermines the utility of a simulator, both for generating realistic individual profiles and for conducting population-level analysis. In analysis, we want to understand how beliefs and behaviors cluster together, or how a shift in sentiment on one topic would affect support for another. To capture these relationships, we must be able to simulate sequences of attributes that are coherent over the joint conditional distribution:
+
+$$(a_1, a_2, a_3) \sim P(\text{healthcare view}, \text{inequality view}, \text{voting} \mid \text{individual})$$
+
+### The Simulator as a Bayesian Network
+
+As we noted earlier, LLMs do a poor job of supplying samples from a joint distribution. This leaves us with a conundrum, since everything we know about these attributes lives in the LLM, yet the LLM cannot hand us the joint we need. We resolve this by using the chain rule of probability to factorize the desired joint conditional (which the LLM cannot supply) into a series of univariate conditionals (which it can supply). By conditioning each response not only on the individual, but on their previously generated answers as well, we can sample attributes autoregressively, meaning each realized answer shifts the probability distributions of subsequent answers.
+
+$$
+\begin{aligned}
+a_1 \sim P(\text{universal healthcare} &\mid \text{individual}),
+\newline a_2 \sim P(\text{wealth inequality} &\mid \text{individual}, \text{healthcare}), 
+\newline a_3 \sim P(\text{voting behavior} &\mid \text{individual}, \text{healthcare}, \text{inequality})
+\end{aligned}
+$$
+
+This factorization is the basis of a Bayesian network, where each attribute gets a node, defined as the conditional distribution of that attribute given the preceding attributes before it. Since this autoregressive generation approximates sampling from the joint conditional, we get coherent sequences of responses. And since we sample probabilistically at each node, we preserve the full variance of the population, and avoid the mode collapse faced when eliciting sequences directly from the LLM.
+
+### Building a Bayesian Network out of Distilled Conditionals
+
+Querying a live LLM sequentially for each generated individual would render large-scale simulation prohibitively expensive. This is a problem we partially addressed in the previous post, where we showed that we can distill an LLM's conditional distributions into offline log-linear models. In this post, we demonstrate how this same distillation approach can be used to construct the nodes of our Bayesian network. We query the LLM during an initial setup phase to estimate each node, and then run the simulation entirely offline. Having explicit parametric models at each node also gives us capabilities that an LLM alone cannot provide, including better calibration, increased interpretability, and the ability to construct counterfactuals which diverge from the LLM's world model.
+
+<img src="/assets/images/distilled-conditional-bayesian-networks-bayesian-simulator.svg" width="720" style="display:block;margin:1.5rem auto;" alt="The DisCo-BN pipeline, distilling LLM-elicited conditional distributions into the nodes of a Bayesian network that then generates coherent synthetic populations offline">
+
+---
+
+## 2. Factorization and Generation
+
+In order to simulate a coherent collection of attributes for an individual (an individual's response to a question being an example of an attribute), we factorize the joint distribution of attributes as a Bayesian network. That is, we define a directed graph where each node corresponds to a single attribute $$A_t$$, and directed edges indicate conditioning relationships between nodes. Writing $$\operatorname{Pa}(t)$$ for node $$t$$'s parent set (the nodes from which it has incoming edges), the network factorizes the joint conditional distribution given the initial seed attributes $$A_c$$ as:
+
+$$P(A_1, A_2, \ldots, A_n \mid A_c) = \prod_{t=1}^n P(A_t \mid \operatorname{Pa}(t))$$
+
+This graphical representation does require assigning a topological ordering to the nodes in the graph, and therefore to their corresponding attributes. Unlike text sequences or time-series data, our various demographic and behavioral attributes have no intrinsic order. It is therefore our responsibility to specify one. Fortunately, mathematically speaking, any ordering is an equally valid factorization under the chain rule. The ordering is really only a practical consideration then, since it determines which conditionals we elicit from the LLM, and in theory some orderings may yield prompts which elicit more stable responses from the LLM. We will consider this choice, as well as the choice of parent-set relations, to be implementation details beyond the scope of this post.
+
+The generative nature of Bayesian networks is our primary motivation for using them. This generation is carried out by forward sampling, which is the process of traversing the graph and instantiating a value at each node by sampling its conditional distribution, using the previously instantiated values of its parents for conditioning. This process is initiated by specifying some seeded context values $$A_c$$ for the root nodes. At step $$t$$, we define the sampling state $$s_t$$ as the sequence of values instantiated so far during the traversal of nodes up to $$t$$. Generating a full sequence of attributes is a sequential rollout where, at each step:
+
+$$
+s_t = (a_c, a_1, \ldots, a_{t-1}) 
+\quad \rightarrow \quad a_t \sim P(A_t \mid \operatorname{Pa}(t)=s_t)
+\quad \rightarrow \quad s_{t+1} = (a_c, a_1, \ldots, a_{t-1}, a_t)
 $$
 
 <img src="/assets/images/distilled-conditional-bayesian-networks-inference-plain.svg" width="720" style="display:block;margin:1.5rem auto;" alt="Forward sampling through the network, each node drawing its value from its local conditional given the instantiated values of its parents">
 
-Drawing each attribute sequentially from its local conditional produces a completed sequence that is mathematically equivalent to a direct draw from the network's joint conditional distribution
+Drawing each attribute sequentially from its local conditional produces a completed sequence that is mathematically equivalent to a direct draw from the joint conditional distribution
 
-$$(a_1, \dots, a_n) \sim P(A_1, \dots, A_n \mid A_c)$$
+$$s_n \sim P(A_1, \dots, A_n \mid A_c)$$
 
-## Conditional probability parameterization
+---
+
+## 3. Learning the Network
+
+When modeling Bayesian networks, it is standard practice to express each node's conditional probability distribution (CPD) with a parameterized function, and to jointly fit all functions (one per node) using a shared corpus of fully observed data. We will adopt the former approach, defining a conditional probability function $$\pi_t$$ for each node $$t$$, such that
+
+$$\pi_t(a_c, a_1, \ldots, a_{t-1}) \approx P(A_t \mid A_c=a_c, A_1=a_1, \ldots, A_{t-1}=a_{t-1})$$
+
+As to the latter however, the non-existence of such fully observed data is the entire premise of this post's method. What is available instead to us is the LLM, which can provide estimates of conditional probabilities given specified conditioning attributes. We therefore treat parameter estimation as a knowledge distillation problem, using the LLM as a teacher model, rather than an empirical data-fitting problem.
+
+Crucially, unlike standard estimation, where the same dataset of joint observations serves the entire network, our LLM queries produce targets specific to one conditional distribution at a time. Because we are providing the LLM values for a specific set of attributes as context, and requesting distributions for a specific attribute in response, data elicited to train one node cannot be recycled to then train another. Our distillation loop therefore involves separately eliciting data for, and fitting each node's function.
+
+For each node $$t$$, we generate a batch of training inputs $$s_t^{(i)}$$, each comprising one value for each of the node's conditioning attributes. For each input, we then elicit from the LLM a probability distribution over possible values for the node's attribute, and treat this as the training target $$y^{(i)}$$. We then use these training inputs and targets to learn our function parameters $$\theta$$ by minimizing the forward KL divergence from the elicited distributions to our model's distributions:
+
+$$
+\theta
+=
+\arg\min_{\theta}
+\frac{1}{N}\sum_{i=1}^{N}
+D_{\mathrm{KL}}\!\left(
+y^{(i)}
+\,\Vert\,
+\pi_t(s_t^{(i)} ; \theta)
+\right)
+$$
+
+<img src="/assets/images/distilled-conditional-bayesian-networks-fitting-node.svg" width="720" style="display:block;margin:1.5rem auto;" alt="Fitting a single node, eliciting a target probability distribution from the LLM at each training state and minimizing forward KL divergence to the node's model">
+
+### Considerations
+
+At a high level, building our full Bayesian network appears to be a simple matter of repeating this distillation process for every node in the graph. In practice, however, translating this abstract single-node loss into an end-to-end generative simulator is not quite so straightforward. The objective above takes several critical ingredients for granted: it assumes we know which training inputs to sample, how to parameterize the function $$\pi_t$$, and how to trust the resulting numbers. In the sections that follow, we focus on three practical considerations that make this problem interesting:
+
+* **1. Where do the training contexts come from?**  
+  Because the LLM is an unconstrained oracle, we could theoretically prompt it with *any* arbitrary combination of conditioning attributes. But with a finite query budget and an imperfectly fitted model, we want to train $$\pi_t$$ on the specific parent configurations $$P(A_c, A_1, \ldots, A_{t-1})$$ the simulator will actually encounter during generation. This creates an apparent chicken-and-egg problem: we need samples from the joint distribution to train the conditional functions, but we are learning the conditional functions precisely to define that joint distribution. In **On-Policy Forward Training**, we show how building the network sequentially resolves this circularity.
+
+* **2. What functional form should $$\pi_t$$ take?**  
+  In theory, any expressive function approximator capable of fitting the training data could serve as a node. However, our end goal is not a black-box predictor, but an interactive simulator whose conditional relationships remain transparent, inspectable, and steerable. In **The Node as a Simulation Control Surface**, we discuss how to parameterize $$\pi_t$$ so that its fitted parameters double as intuitive simulation levers.
+
+* **3. How do we ensure the simulation reflects reality?**  
+  Our goal is not simply to replicate the LLM. While we rely on the model's conditional judgments as provisional *association structure* where observational records are missing, LLMs can be poorly calibrated on absolute base rates. In **Grounding the Levels**, we explore how to separate the LLM's relational patterns from real-world aggregate data, anchoring the simulator's population-level responses to measured evidence.
+
+The targets themselves are straightforward to obtain: the LLM will return a probability distribution for any context we supply. The most immediate open question is how to generate those contexts in the first place.
+
+---
+
+## 4. Why we can't learn the nodes independently
+
+The combinatorial state space $$\mathcal{A}_c \times \mathcal{A}_1 \times \cdots \times \mathcal{A}_{t-1}$$ grows exponentially with each additional attribute. The vast majority of this product space consists of nonsensical or vanishingly rare combinations. Sampling arbitrary combinations across this space exposes us to the classic off-policy covariate shift problem in imitation learning. When a student policy is trained on an off-policy distribution of states, rather than the distribution generated by its own sequential rollout, small estimation errors compound quadratically along the rollout trajectory.
+
+Compounding this issue is the nature of the oracle itself. While an LLM will obligingly return a probability distribution for any prompt we hand it, we cannot expect grounded or coherent conditionals on nonsensical, off-manifold profiles that have no basis in human reality. Fitting our student models on these phantom states distorts the learned parameters in the realistic regions where the model actually needs to operate.
+
+### Sequential bootstrapping
+
+We therefore use on-policy sequential bootstrapping, which directly mirrors the Forward Training algorithm in imitation learning. To construct the network, we seed a training population by sampling context attributes $$A_c \sim P(A_c)$$. For each subsequent attribute node $$t$$, we treat the learned prefix $$(\pi_1, \dots, \pi_{t-1})$$ as an active, self-contained Bayesian network and use closed-loop forward sampling to generate our training states:
+
+$$s_t^{(i)} \sim P_{\pi_{1:t-1}}(s_t)$$
+
+We query the LLM oracle exclusively on these student-generated states, fit $$\pi_t$$ by minimizing the empirical forward KL, and sample $$a_t \sim \pi_t$$ to form the histories for node $$t+1$$. Every node is thus trained strictly on-policy with respect to the prefix that precedes it, completely eliminating rollout distribution mismatch.
+
+<img src="/assets/images/distilled-conditional-bayesian-networks-training-loop-v2.svg" width="720" style="display:block;margin:1.5rem auto;" alt="The sequential bootstrapping loop, sampling states from the learned prefix, querying the LLM oracle, fitting the next node, and appending its samples">
+
+Crucially, unlike standard imitation learning where an expert provides only a single discrete demonstration action (or scalar reward), our oracle returns the full categorical probability distribution over all response options. Minimizing forward KL divergence against this soft target forces the student to match the full variance, entropy, and relative probabilities of the teacher's conditional distribution, rather than collapsing to a single mode.
+
+Once the full chain of nodes is distilled, this construction-time population is discarded; we can then seed fresh populations of any size from $$P(A_c)$$ and simulate complete profiles offline at zero marginal LLM cost.
+
+---
+
+## 5. Conditional probability parameterization
 
 For each node $$t$$, we define a local policy $$\pi_t(s_t)$$: our offline model representing the conditional distribution over values of $$A_t$$ given the values of its parents in the state:
 
@@ -61,41 +163,9 @@ Each node normalizes its own distribution, so the energies are local to a node. 
 
 <img src="/assets/images/distilled-conditional-bayesian-networks-node-table.svg" width="720" style="display:block;margin:1.5rem auto;" alt="An edge of the network as a table of score contributions, one entry per parent level and response option">
 
-## Conditional distillation
-
-We treat the LLM as an oracle $$\pi_{LLM}(\cdot \mid A_t, s_t)$$. Unlike our local student policies, which are each dedicated to a single attribute, the oracle is an all-purpose queryable interface that returns a probability distribution over the categories of any attribute given any state prompt. To fit each node $$\pi_t$$, we collect a training set of $$N$$ states $$s_t^{(n)}$$, query the oracle for the target response distribution at each state, and minimize the empirical forward KL divergence:
-
-$$\pi_t = \arg\min_\pi \frac{1}{N} \sum_{i=1}^N KL\big(\pi_{LLM}(s_t^{(i)}) \,\|\, \pi(s_t^{(i)})\big)$$
-
-Minimizing forward KL against soft target distributions is equivalent to minimizing soft-label cross-entropy (since the teacher's entropy is constant with respect to the student's parameters). This objective is convex in the node's energies, so each fit reaches a global optimum with no sensitivity to initialization. When we distilled the single conditional $$P(A_1 \mid A_c)$$, the context attributes $$A_c$$ came from a microdata-sourced joint, so it was trivial to generate representative query states.
-
-Once we move to a multi-node network, however, each subsequent conditional $$P(A_t \mid \operatorname{Pa}(t))$$ must condition not just on $$A_c$$, but on parent attributes that are themselves generated. This raises an immediate question: where do the training states for downstream nodes come from?
-
-## Why we can't learn the nodes independently
-
-Typically, training a sequential generative model is a matter of fitting unknown parameters to known full samples (microdata rows). We have the opposite aim, using independently fit conditionals (distilled from the LLM) to learn a generator for samples that never existed. In order to fit some $$\pi_t$$, we require sequences of values up to $$s_t$$, which we use to query the oracle to fit $$KL(\pi_{LLM} \,\|\, \pi_t)$$. We can't rely on the teacher model (the LLM) to supply sample sequences. After all, one of the fundamental motivations for our method is that the oracle struggles with generating trajectories. Nor should we create randomly generated states.
-
-The combinatorial state space $$\mathcal{A}_c \times \mathcal{A}_1 \times \cdots \times \mathcal{A}_{t-1}$$ grows exponentially with each additional attribute. The vast majority of this product space consists of nonsensical or vanishingly rare combinations. Sampling arbitrary combinations across this space exposes us to the classic off-policy covariate shift problem in imitation learning. When a student policy is trained on an off-policy distribution of states, rather than the distribution generated by its own sequential rollout, small estimation errors compound quadratically along the rollout trajectory.
-
-Compounding this issue is the nature of the oracle itself. While an LLM will obligingly return a probability distribution for any prompt we hand it, we cannot expect grounded or coherent conditionals on nonsensical, off-manifold profiles that have no basis in human reality. Fitting our student models on these phantom states distorts the learned parameters in the realistic regions where the model actually needs to operate.
-
-## Sequential bootstrapping
-
-We therefore use on-policy sequential bootstrapping, which directly mirrors the Forward Training algorithm in imitation learning. To construct the network, we seed a training population by sampling context attributes $$A_c \sim P(A_c)$$. For each subsequent attribute node $$t$$, we treat the learned prefix $$(\pi_1, \dots, \pi_{t-1})$$ as an active, self-contained Bayesian network and use closed-loop forward sampling to generate our training states:
-
-$$s_t^{(i)} \sim P_{\pi_{1:t-1}}(s_t)$$
-
-We query the LLM oracle exclusively on these student-generated states, fit $$\pi_t$$ by minimizing the empirical forward KL, and sample $$a_t \sim \pi_t$$ to form the histories for node $$t+1$$. Every node is thus trained strictly on-policy with respect to the prefix that precedes it, completely eliminating rollout distribution mismatch.
-
-<img src="/assets/images/distilled-conditional-bayesian-networks-training-loop.svg" width="720" style="display:block;margin:1.5rem auto;" alt="The sequential bootstrapping loop, sampling states from the learned prefix, querying the LLM oracle, fitting the next node, and appending its samples">
-
-Crucially, unlike standard imitation learning where an expert provides only a single discrete demonstration action (or scalar reward), our oracle returns the full categorical probability distribution over all response options. Minimizing forward KL divergence against this soft target forces the student to match the full variance, entropy, and relative probabilities of the teacher's conditional distribution, rather than collapsing to a single mode.
-
-Once the full chain of nodes is distilled, this construction-time population is discarded; we can then seed fresh populations of any size from $$P(A_c)$$ and simulate complete profiles offline at zero marginal LLM cost.
-
 ## Calibrating the levels
 
-A well-documented failure mode of LLMs in social science is prior bias. As we showed in [the previous post](/2026/08/03/build-your-simulator.html), the oracle often has the right slope and relative ordering, but its absolute baseline can be shifted. If a trusted marginal $$M_t$$ is known for $$A_t$$, after fitting $$\pi_t$$ we shift its baseline energies while holding every parent contribution fixed, until the mean predicted distribution across the training population matches that marginal. Writing $$E_0^\star$$ for the shifted baselines, calibration solves
+A well-documented failure mode of LLMs in social science is prior bias. As we showed in the previous post, the oracle often has the right slope and relative ordering, but its absolute baseline can be shifted. If a trusted marginal $$M_t$$ is known for $$A_t$$, after fitting $$\pi_t$$ we shift its baseline energies while holding every parent contribution fixed, until the mean predicted distribution across the training population matches that marginal. Writing $$E_0^\star$$ for the shifted baselines, calibration solves
 
 $$\frac{1}{N}\sum_{i=1}^{N} \pi_t\big(\cdot \mid s_t^{(i)};\, E_0^\star\big) = M_t$$
 
