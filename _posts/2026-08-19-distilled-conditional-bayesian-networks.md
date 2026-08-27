@@ -52,7 +52,7 @@ This factorization is the basis of a Bayesian network, where each attribute gets
 
 Querying a live LLM sequentially for each generated individual would render large-scale simulation prohibitively expensive. This is a problem we partially addressed in the previous post, where we showed that we can distill an LLM's conditional distributions into offline log-linear models. In this post, we demonstrate how this same distillation approach can be used to construct the nodes of our Bayesian network. We query the LLM during an initial setup phase to estimate each node, and then run the simulation entirely offline. Having explicit parametric models at each node also gives us capabilities that an LLM alone cannot provide, including better calibration, increased interpretability, and the ability to construct counterfactuals which diverge from the LLM's world model.
 
-<img src="/assets/images/distilled-conditional-bayesian-networks-bayesian-simulator.svg" width="720" style="display:block;margin:1.5rem auto;" alt="The DisCo-BN pipeline, distilling LLM-elicited conditional distributions into the nodes of a Bayesian network that then generates coherent synthetic populations offline">
+<img src="/assets/images/distilled-conditional-bayesian-networks-bayesian-simulator.svg" width="540" style="display:block;margin:1.5rem auto;" alt="The DisCo-BN pipeline, distilling LLM-elicited conditional distributions into the nodes of a Bayesian network that then generates coherent synthetic populations offline">
 
 ---
 
@@ -72,7 +72,7 @@ s_t = (a_c, a_1, \ldots, a_{t-1})
 \quad \rightarrow \quad s_{t+1} = (a_c, a_1, \ldots, a_{t-1}, a_t)
 $$
 
-<img src="/assets/images/distilled-conditional-bayesian-networks-inference-plain.svg" width="720" style="display:block;margin:1.5rem auto;" alt="Forward sampling through the network, each node drawing its value from its local conditional given the instantiated values of its parents">
+<img src="/assets/images/distilled-conditional-bayesian-networks-inference-plain.svg" width="432" style="display:block;margin:1.5rem auto;" alt="Forward sampling through the network, each node drawing its value from its local conditional given the instantiated values of its parents">
 
 Drawing each attribute sequentially from its local conditional produces a completed sequence that is mathematically equivalent to a direct draw from the joint conditional distribution
 
