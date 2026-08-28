@@ -58,23 +58,23 @@ Querying a live LLM sequentially for each generated individual would render larg
 
 ## 2. Factorization and Generation
 
-In order to simulate a coherent collection of attributes for an individual (an individual's response to a question being an example of an attribute), we factorize the joint distribution of attributes as a Bayesian network. That is, we define a directed graph where each node corresponds to a single attribute $$A_t$$, and directed edges indicate conditioning relationships between nodes. Writing $$\operatorname{Pa}(t)$$ for node $$t$$'s parent set (the nodes from which it has incoming edges), the network factorizes the joint conditional distribution given the initial seed attributes $$A_c$$ as:
+In order to simulate a coherent collection of attributes for an individual (an individual's response to a question being an example of an attribute), we factorize the joint distribution of attributes as a Bayesian network. That is, we define a directed graph where each node corresponds to a single attribute $$A_t$$, and directed edges indicate conditioning relationships between nodes. In the more general case, making no assumptions of independence between attributes, we consider each node's parent set to contain all preceding attributes. Given initial seed attributes $$A_c$$ then, the network factorizes the joint conditional distribution as:
 
-$$P(A_1, A_2, \ldots, A_n \mid A_c) = \prod_{t=1}^n P(A_t \mid \operatorname{Pa}(t))$$
+$$P(A_1, A_2, \ldots, A_n \mid A_c) = \prod_{t=1}^n P(A_t \mid A_c, A_1, \ldots, A_{t-1})$$
 
-This graphical representation does require assigning a topological ordering to the nodes in the graph, and therefore to their corresponding attributes. Unlike text sequences or time-series data, our various demographic and behavioral attributes have no intrinsic order. It is therefore our responsibility to specify one. Fortunately, mathematically speaking, any ordering is an equally valid factorization under the chain rule. The ordering is really only a practical consideration then, since it determines which conditionals we elicit from the LLM, and in theory some orderings may yield prompts which elicit more stable responses from the LLM. We will consider this choice, as well as the choice of parent-set relations, to be implementation details beyond the scope of this post.
+This graphical representation does require assigning a topological ordering to the nodes in the graph, and therefore to their corresponding attributes. Unlike text sequences or time-series data, our various demographic and behavioral attributes have no intrinsic order. It is therefore our responsibility to specify one. Fortunately, mathematically speaking, any ordering is an equally valid factorization under the chain rule. The ordering is really only a practical consideration then, since it determines which conditionals we elicit from the LLM, and in theory some orderings may yield prompts which elicit more stable responses from the LLM. We will consider this choice to be an implementation detail beyond the scope of this post. Likewise, our assumption of a fully connected network is not a requirement of our method generally, but we leave pruning decisions to implementation.
 
-The generative nature of Bayesian networks is our primary motivation for using them. This generation is carried out by forward sampling, which is the process of traversing the graph and instantiating a value at each node by sampling its conditional distribution, using the previously instantiated values of its parents for conditioning. This process is initiated by specifying some seeded context values $$A_c$$ for the root nodes. At step $$t$$, we define the sampling state $$s_t$$ as the sequence of values instantiated so far during the traversal of nodes up to $$t$$. Generating a full sequence of attributes is a sequential rollout where, at each step:
+The generative nature of Bayesian networks is our primary motivation for using them. This is performed by forward sampling: traversing the graph, and instantiating a value at each node by sampling its conditional distribution using all previously instantiated values for conditioning. This process is initiated by specifying some seeded context values $$A_c$$ for the root nodes. We frame this autoregressive generation as a sequential decision process where, at step $$t$$, the state $$s_t$$ contains the sequence of all values instantiated so far (including the initial $$a_c$$):
 
 $$
 s_t = (a_c, a_1, \ldots, a_{t-1}) 
-\quad \rightarrow \quad a_t \sim P(A_t \mid \operatorname{Pa}(t)=s_t)
+\quad \rightarrow \quad a_t \sim P(A_t \mid s_t)
 \quad \rightarrow \quad s_{t+1} = (a_c, a_1, \ldots, a_{t-1}, a_t)
 $$
 
 Drawing each attribute sequentially from its local conditional produces a completed sequence that is mathematically equivalent to a direct draw from the joint conditional distribution
 
-$$s_n \sim P(A_1, \dots, A_n \mid A_c)$$
+$$s_{n+1} \sim P(A_1, \dots, A_n \mid A_c)$$
 
 <img src="/assets/images/distilled-conditional-bayesian-networks-inference-plain.svg" width="720" style="display:block;margin:1.5rem auto;" alt="Forward sampling through the network, each node drawing its value from its local conditional given the instantiated values of its parents">
 
@@ -84,7 +84,7 @@ $$s_n \sim P(A_1, \dots, A_n \mid A_c)$$
 
 When modeling Bayesian networks, it is standard practice to express each node's conditional probability distribution (CPD) with a parameterized function, and to jointly fit all functions (one per node) using a shared corpus of fully observed data. We will adopt the former approach, defining a conditional probability function $$\pi_t$$ for each node $$t$$, such that
 
-$$\pi_t(a_c, a_1, \ldots, a_{t-1}) \approx P(A_t \mid A_c=a_c, A_1=a_1, \ldots, A_{t-1}=a_{t-1})$$
+$$\pi_t(\cdot \mid a_c, a_1, \ldots, a_{t-1}) \approx P(A_t \mid A_c=a_c, A_1=a_1, \ldots, A_{t-1}=a_{t-1})$$
 
 As to the latter however, the non-existence of such fully observed data is the entire premise of this post's method. What is available instead to us is the LLM, which can provide estimates of conditional probabilities given specified conditioning attributes. We therefore treat parameter estimation as a knowledge distillation problem, using the LLM as a teacher model, rather than an empirical data-fitting problem.
 
@@ -99,7 +99,7 @@ For each node $$t$$, we generate a batch of training inputs $$s_t^{(i)}$$, each 
 At a high level, building our full Bayesian network appears to be a simple matter of repeating this distillation process for every node in the graph. In practice, however, translating this abstract single-node loss into an end-to-end generative simulator is not quite so straightforward. In the following sections, we discuss, in more detail, the three practical considerations underpinning this approach:
 
 * **Where do the training contexts come from?**  
-  Because the LLM is an unconstrained oracle, we could theoretically prompt it with any arbitrary combination of conditioning attributes. But with a finite query budget and an imperfectly fitted model, we want to train $$\pi_t$$ on the specific parent configurations $$P(A_c, A_1, \ldots, A_{t-1})$$ the simulator will actually encounter during generation. This creates an apparent chicken-and-egg problem, in that we need samples from the joint distribution to train the conditional functions, but we are learning the conditional functions precisely to define that joint distribution. In **Why We Can't Learn the Nodes Independently**, we show how building the network sequentially resolves this circularity.
+  Because the LLM is an unconstrained oracle, we could theoretically prompt it with any arbitrary combination of conditioning attributes. But with a finite query budget and an imperfectly fitted model, we want to train $$\pi_t$$ on the specific parent configurations, drawn from $$P(A_c, A_1, \ldots, A_{t-1})$$, that the simulator will actually encounter during generation. This creates an apparent chicken-and-egg problem, in that we need samples from the joint distribution to train the conditional functions, but we are learning the conditional functions precisely to define that joint distribution. In **Why We Can't Learn the Nodes Independently**, we show how building the network sequentially resolves this circularity.
 
 * **What functional form should $$\pi_t$$ take?**  
   In theory, any expressive function approximator capable of fitting the training data could serve as a node. However, our end goal is not a black-box predictor, but an interactive simulator, whose conditional relationships remain transparent, inspectable, and steerable. In **Relative Structure and Population Level**, we discuss how to parameterize $$\pi_t$$ so that its fitted parameters double as a manipulable control plane.
@@ -121,7 +121,7 @@ We therefore use on-policy sequential bootstrapping, which directly mirrors the 
 
 $$s_t^{(i)} \sim P_{\pi_{1:t-1}}(s_t)$$
 
-We query the LLM oracle exclusively on these student-generated states, fit $$\pi_t$$ by minimizing the empirical forward KL, and sample $$a_t \sim \pi_t$$ to form the histories for node $$t+1$$. Every node is thus trained strictly on-policy with respect to the prefix that precedes it, completely eliminating rollout distribution mismatch.
+We query the LLM oracle exclusively on these student-generated states, fit $$\pi_t$$ by minimizing the empirical forward KL, and sample $$a_t \sim \pi_t$$ to form the states for node $$t+1$$. Every node is thus trained strictly on-policy with respect to the prefix that precedes it, completely eliminating rollout distribution mismatch.
 
 <img src="/assets/images/distilled-conditional-bayesian-networks-training-loop-v2.svg" width="720" style="display:block;margin:1.5rem auto;" alt="The sequential bootstrapping loop, sampling states from the learned prefix, querying the LLM oracle, fitting the next node, and appending its samples">
 
@@ -180,20 +180,20 @@ $$
 
 This gives the two sources of information distinct roles. The observed marginal determines how much total probability mass belongs to each response option, and the learned weights determine how that mass varies across individuals according to their parent attributes.
 
-Calibration of a node can be performed post hoc, but for the same reason we source training inputs from a forward sampled population which matches our expectations of future state encounters, we want to integrate calibration into the forward construction loop, since it modifies downstream generation. We fit a node, calibrate its baseline, sample and append the new attribute, and then use the expanded population to train the next node. Every later node therefore learns from histories whose upstream population levels have already been grounded. Because subsequent nodes' conditional functions are fit independently, borrowing only generated input samples from earlier nodes, their training and calibration do not alter the marginals established earlier in the chain. A network trained this way generates populations whose per-attribute marginals match each supplied target. When a measured target is available, calibration grounds the node's population level to that evidence.
+Calibration of a node can be performed post hoc, but for the same reason we source training inputs from a forward sampled population which matches the states the simulator will actually encounter, we want to integrate calibration into the forward construction loop, since it modifies downstream generation. We fit a node, calibrate its baseline, sample and append the new attribute, and then use the expanded population to train the next node. Every later node therefore learns from states whose upstream population levels have already been grounded. Because subsequent nodes' conditional functions are fit independently, borrowing only generated input samples from earlier nodes, their training and calibration do not alter the marginals established earlier in the chain. A network trained this way generates populations whose per-attribute marginals match each supplied target. When a measured target is available, calibration grounds the node's population level to that evidence.
 
 ## Conclusion
 
 A queryable LLM gives us conditionals, but population simulation requires a reusable joint. A DisCo-BN builds that joint one factor at a time, using an on-policy forward training approach to distill the oracle LLM. When a trusted marginal is available, we can shift the new node's baseline before it enters the prefix. After the final node is learned, the network can simulate arbitrarily large populations of coherent people through ordinary forward sampling, with no further LLM calls. The finished network is itself an explicit joint distribution:
 
-$$P_{\pi}(A_1, A_2, \ldots, A_n \mid A_c) = \prod_{t=1}^n \pi_t(A_t \mid \operatorname{Pa}(t))$$
+$$P_{\pi}(A_1, A_2, \ldots, A_n \mid A_c) = \prod_{t=1}^n \pi_t(A_t \mid A_c, A_1, \ldots, A_{t-1})$$
 
 A completed profile can be assigned a likelihood as readily as it can be sampled.
 
 ## Appendix: Query Cost and Model Size
 
-For a node with $$K_t$$ possible values, its parameter count grows linearly with the encoded size of its parent set:
+For a node with $$K_t$$ possible values, its parameter count grows linearly with the encoded size of its conditioning history:
 
-$$\text{Parameters}(\pi_t) = (K_t - 1)\left[1 + d_c + \sum_{j \in \operatorname{Pa}(t)}(K_j - 1)\right],$$
+$$\text{Parameters}(\pi_t) = (K_t - 1)\left[1 + d_c + \sum_{j < t}(K_j - 1)\right],$$
 
-where $$d_c$$ is the encoded dimension of the context attributes. Across the full network, parameter growth is quadratic in the worst-case complete DAG, but linear for a sparse graph with bounded in-degree. Let $$p = 1 + d_c + \sum_{j \in \operatorname{Pa}(t)}(K_j - 1)$$ be the conditional's design dimension. Because each oracle query returns the complete response distribution, one query supplies $$K_t - 1$$ independent soft targets. In our experiments, projection loss typically stabilized once the number of queried states reached a small multiple of $$p$$, roughly $$2p$$. This is an empirical planning heuristic rather than a universal guarantee.
+where $$d_c$$ is the encoded dimension of the context attributes. Across the full network, total parameter count grows quadratically with the number of attributes, since each node conditions on everything before it. Restricting nodes to a bounded parent set, the pruning noted in section 2, would make that growth linear. Let $$p = 1 + d_c + \sum_{j < t}(K_j - 1)$$ be the conditional's design dimension. Because each oracle query returns the complete response distribution, one query supplies $$K_t - 1$$ independent soft targets. In our experiments, projection loss typically stabilized once the number of queried states reached a small multiple of $$p$$, roughly $$2p$$. This is an empirical planning heuristic rather than a universal guarantee. Because $$p$$ grows along the chain, the $$2p$$ heuristic also means later nodes need proportionally more queried states than earlier ones.
