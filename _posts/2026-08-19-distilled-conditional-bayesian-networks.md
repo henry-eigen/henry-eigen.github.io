@@ -99,13 +99,13 @@ For each node $$t$$, we generate a batch of training inputs $$s_t^{(i)}$$, each 
 At a high level, building our full Bayesian network appears to be a simple matter of repeating this distillation process for every node in the graph. In practice, however, translating this abstract single-node loss into an end-to-end generative simulator is not quite so straightforward. In the following sections, we discuss, in more detail, the three practical considerations underpinning this approach:
 
 * **Where do the training contexts come from?**  
-  Because the LLM is an unconstrained oracle, we could theoretically prompt it with any arbitrary combination of conditioning attributes. But with a finite query budget and an imperfectly fitted model, we want to train $$\pi_t$$ on the specific parent configurations $$P(A_c, A_1, \ldots, A_{t-1})$$ the simulator will actually encounter during generation. This creates an apparent chicken-and-egg problem, in that we need samples from the joint distribution to train the conditional functions, but we are learning the conditional functions precisely to define that joint distribution. In **On-Policy Forward Training**, we show how building the network sequentially resolves this circularity.
+  Because the LLM is an unconstrained oracle, we could theoretically prompt it with any arbitrary combination of conditioning attributes. But with a finite query budget and an imperfectly fitted model, we want to train $$\pi_t$$ on the specific parent configurations $$P(A_c, A_1, \ldots, A_{t-1})$$ the simulator will actually encounter during generation. This creates an apparent chicken-and-egg problem, in that we need samples from the joint distribution to train the conditional functions, but we are learning the conditional functions precisely to define that joint distribution. In **Why We Can't Learn the Nodes Independently**, we show how building the network sequentially resolves this circularity.
 
 * **What functional form should $$\pi_t$$ take?**  
-  In theory, any expressive function approximator capable of fitting the training data could serve as a node. However, our end goal is not a black-box predictor, but an interactive simulator, whose conditional relationships remain transparent, inspectable, and steerable. In **The Node as a Simulation Control Surface**, we discuss how to parameterize $$\pi_t$$ so that its fitted parameters double as a manipulable control plane.
+  In theory, any expressive function approximator capable of fitting the training data could serve as a node. However, our end goal is not a black-box predictor, but an interactive simulator, whose conditional relationships remain transparent, inspectable, and steerable. In **Relative Structure and Population Level**, we discuss how to parameterize $$\pi_t$$ so that its fitted parameters double as a manipulable control plane.
 
 * **How do we ensure the simulation reflects reality?**  
-  While we rely on the model's conditional judgments as provisional association structure where observational records are missing, LLMs can be poorly calibrated on absolute base rates. In **Grounding the Levels**, we explore how to separate the LLM's relational patterns from real-world aggregate data, anchoring the simulator's population-level responses to available ground truth evidence.
+  While we rely on the model's conditional judgments as provisional association structure where observational records are missing, LLMs can be poorly calibrated on absolute base rates. In **Grounding the Population Level**, we explore how to separate the LLM's relational patterns from real-world aggregate data, anchoring the simulator's population-level responses to available ground truth evidence.
 
 ---
 
@@ -131,44 +131,65 @@ Once the full chain of nodes is distilled, this construction-time population is 
 
 ---
 
-## 5. Conditional probability parameterization
+## 5. Relative Structure and Population Level
 
-For each node $$t$$, we define a local policy $$\pi_t(s_t)$$: our offline model representing the conditional distribution over values of $$A_t$$ given the values of its parents in the state:
+DisCo-BN does not prescribe a particular architecture for its conditional functions. Any formulation which can learn the mapping from a node's parent attribute values to the LLM-supplied distribution can serve as a parameterization. For this post, we use a simple linear formulation of that mapping, softmax regression. In addition to being parameter efficient and offering desirable convexity properties for optimization, it is both highly interpretable and easily manipulable, two properties of value to a simulation.
 
-$$\pi_t(s_t) \approx P(A_t \mid \operatorname{Pa}(t))$$
+Consider a node $$t$$, whose modeled attribute $$A_t$$ has response options $$k=1,\ldots,K$$. Let $$x=x(s_t)$$ be a multi-hot encoding of the attributes of $$s_t$$, such that $$x$$ is a binary vector formed by flattening the levels of each parent attribute, and setting $$x_j = \mathbb{1}[a_{n_j} = v_j]$$, where position $$j$$ represents level $$v_j$$ of parent attribute $$A_{n_j}$$, so each entry $$x_j$$ equals 1 when the individual has the attribute level represented by position $$j$$, and 0 otherwise.
 
-We parameterize each policy with additive energies. Each response option $$c$$ of $$A_t$$ carries a baseline energy $$E_0(c)$$, and each level of each parent attribute contributes an energy $$E_c(a_j)$$. The total energy of an option given the state is their sum:
+For every response option $$k$$ of $$A_t$$, softmax regression learns one corresponding parameter for each encoded parent-attribute level. We collect those parameters in a matrix $$W$$, where $$W$$ has dimensions $$K\times |x|$$, and $$w_{k, j}$$ corresponds to the effect attribute value $$j$$ has on option $$k$$. The intercept vector $$b$$ then supplies one baseline value per response option. Together they define the node's conditional distribution:
 
-$$E(c) = E_0(c) + \sum_{j \in \operatorname{Pa}(t)} E_c(a_j)$$
-
-A low total energy marks a combination of parent values compatible with option $$c$$, and a high total energy marks a mismatch. The node's response distribution normalizes the exponentiated negative energies over the options
-
-$$\pi_t(A_t = c \mid s_t) = \frac{e^{-E(c)}}{\sum_{c'} e^{-E(c')}}$$
-
-Learning these is equivalent to fitting a multinomial logistic regression. It maps arbitrary combinations of parent values to a normalized response distribution, can be fitted with a convex objective, and shares information across states rather than maintaining a separate table for every parent configuration. For each parent, one reference level's contribution is fixed at zero to make the remaining energies identifiable.
-
-Each node normalizes its own distribution, so the energies are local to a node. The joint distribution arises from composing the nodes through forward sampling, and no single global energy over complete records is defined. An edge in the graph is a table of these contributions, one entry per parent level and response option. We display tables in score form (negated energies), so a higher entry favors its option. A sparser graph carries fewer tables.
+$$
+\pi_t(\cdot \mid s_t)
+=
+\operatorname{softmax}\left(x(s_t)W^\top+b\right)
+$$
 
 <img src="/assets/images/distilled-conditional-bayesian-networks-node-table.svg" width="720" style="display:block;margin:1.5rem auto;" alt="An edge of the network as a table of score contributions, one entry per parent level and response option">
 
-## Calibrating the levels
+For each output option $$k$$, every parent attribute contributes one weight value corresponding to that attribute value's effect on the output $$k$$. Of interest to us is that softmax regression separates relative conditional structure from population level. For any two response options $$k$$ and $$\ell$$,
 
-A well-documented failure mode of LLMs in social science is prior bias. As we showed in the previous post, the oracle often has the right slope and relative ordering, but its absolute baseline can be shifted. If a trusted marginal $$M_t$$ is known for $$A_t$$, after fitting $$\pi_t$$ we shift its baseline energies while holding every parent contribution fixed, until the mean predicted distribution across the training population matches that marginal. Writing $$E_0^\star$$ for the shifted baselines, calibration solves
+$$
+\log\frac{\pi_t(k\mid x)}{\pi_t(\ell\mid x)}
+=
+(b_k-b_\ell)+x(W_k-W_\ell)^\top
+$$
 
-$$\frac{1}{N}\sum_{i=1}^{N} \pi_t\big(\cdot \mid s_t^{(i)};\, E_0^\star\big) = M_t$$
+Comparing two individuals removes the baseline entirely:
 
-This is the same intercept tuning we solved in the previous post, now averaged over the on-policy training population rather than an external frame. Like the distillation objective, the problem is convex, with a unique solution up to the reference-level normalization. The shift changes the node's overall level while preserving the learned between-state contrasts. The realized shares after hard sampling then differ only by ordinary sampling noise. We make this adjustment before sampling $$A_t$$ and appending it to the state. Because each sampled answer becomes part of the history for later nodes, calibrating the level at this point prevents a baseline error from propagating through the rest of the chain. If no trusted marginal is available, the fitted policy enters the prefix unchanged.
+$$
+\log\frac{\pi_t(k\mid x)}{\pi_t(\ell\mid x)}
+-
+\log\frac{\pi_t(k\mid x')}{\pi_t(\ell\mid x')}
+=
+(x-x')(W_k-W_\ell)^\top
+$$
 
-Nothing in the operation requires the target marginal $$M_t$$ to be a measured one. Setting a node's level to a hypothetical value and resampling the attributes downstream shows what the fitted network implies for the rest of the chain, at no additional distillation cost. In this post we use the lever only for calibration against trusted statistics.
+In this sense, the node learns two things separately. The weights $$W$$ describe how different parent profiles shift the relative odds of each output, and the baseline vector $$b$$ supplies one option-wide offset per response category. Together, the expected input population to a node, the learned weight shifts, and the baseline offset determine the node's aggregate level. Distillation initially learns both weights and baseline from the LLM, but we can subsequently adjust the baseline while leaving the learned relative-profile structure fixed.
 
-## Query cost and model size
+## 6. Grounding the Population Level
+
+The LLM supplies conditional structure where complete joint data are unavailable, but missing joint microdata does not mean that no population evidence exists. Suppose we know a target marginal distribution $$M=(M_1,\ldots,M_K)$$ over $$A_t$$'s $$K$$ response options. After fitting $$\pi_t$$ according to the LLM-supplied training samples, we can hold the learned weights $$W$$ fixed, and solve for a new baseline $$b^\star$$ such that the node's mean predicted distribution across the population generated up until the previous node matches the target:
+
+$$
+\frac{1}{N}\sum_{i=1}^{N}
+\operatorname{softmax}
+\left(x^{(i)}W^\top+b^\star\right)
+= M
+$$
+
+This gives the two sources of information distinct roles. The observed marginal determines how much total probability mass belongs to each response option, and the learned weights determine how that mass varies across individuals according to their parent attributes.
+
+Calibration of a node can be performed post hoc, but for the same reason we source training inputs from a forward sampled population which matches our expectations of future state encounters, we want to integrate calibration into the forward construction loop, since it modifies downstream generation. We fit a node, calibrate its baseline, sample and append the new attribute, and then use the expanded population to train the next node. Every later node therefore learns from histories whose upstream population levels have already been grounded. Because subsequent nodes' conditional functions are fit independently, borrowing only generated input samples from earlier nodes, their training and calibration do not alter the marginals established earlier in the chain. A network trained this way generates populations whose per-attribute marginals match each supplied target. When a measured target is available, calibration grounds the node's population level to that evidence.
+
+## Conclusion
+
+A queryable LLM gives us conditionals, but population simulation requires a reusable joint. A DisCo-BN builds that joint one factor at a time, using an on-policy forward training approach to distill the oracle LLM. When a trusted marginal is available, we can shift the new node's baseline before it enters the prefix. After the final node is learned, the network can simulate arbitrarily large populations of coherent people through ordinary forward sampling, with no further LLM calls.
+
+## Appendix: Query Cost and Model Size
 
 For a node with $$K_t$$ possible values, its parameter count grows linearly with the encoded size of its parent set:
 
 $$\text{Parameters}(\pi_t) = (K_t - 1)\left[1 + d_c + \sum_{j \in \operatorname{Pa}(t)}(K_j - 1)\right],$$
 
 where $$d_c$$ is the encoded dimension of the context attributes. Across the full network, parameter growth is quadratic in the worst-case complete DAG, but linear for a sparse graph with bounded in-degree. Let $$p = 1 + d_c + \sum_{j \in \operatorname{Pa}(t)}(K_j - 1)$$ be the conditional's design dimension. Because each oracle query returns the complete response distribution, one query supplies $$K_t - 1$$ independent soft targets. In our experiments, projection loss typically stabilized once the number of queried states reached a small multiple of $$p$$, roughly $$2p$$. This is an empirical planning heuristic rather than a universal guarantee.
-
-## Conclusion
-
-A queryable LLM gives us conditionals, but population simulation requires a reusable joint. A DisCo-BN builds that joint one factor at a time, using an on-policy forward training approach to distill the oracle LLM. When a trusted marginal is available, we can shift the new policy's baseline energies before it enters the prefix. After the final node is learned, the network can simulate arbitrarily large populations of coherent people through ordinary forward sampling, with no further LLM calls.
