@@ -137,7 +137,7 @@ DisCo-BN does not prescribe a particular architecture for its conditional functi
 
 Consider a node $$t$$, whose modeled attribute $$A_t$$ has response options $$k=1,\ldots,K$$. Let $$x=x(s_t)$$ be a multi-hot encoding of the attributes of $$s_t$$, such that $$x$$ is a binary vector formed by flattening the levels of each parent attribute, and setting $$x_j = \mathbb{1}[a_{n_j} = v_j]$$, where position $$j$$ represents level $$v_j$$ of parent attribute $$A_{n_j}$$, so each entry $$x_j$$ equals 1 when the individual has the attribute level represented by position $$j$$, and 0 otherwise.
 
-For every response option $$k$$ of $$A_t$$, softmax regression learns one corresponding parameter for each encoded parent-attribute level. We collect those parameters in a matrix $$W$$, where $$W$$ has dimensions $$K\times |x|$$, and $$w_{k, j}$$ corresponds to the effect attribute value $$j$$ has on option $$k$$. The intercept vector $$b$$ then supplies one baseline value per response option. Together they define the node's conditional distribution:
+For every response option $$k$$ of $$A_t$$, softmax regression learns one corresponding parameter for each encoded parent-attribute level. We collect those parameters in a matrix $$W$$, where $$W$$ has dimensions $$K\times \mid x \mid$$, and $$w_{k, j}$$ corresponds to the effect attribute value $$j$$ has on option $$k$$. The intercept vector $$b$$ then supplies one baseline value per response option. Together they define the node's conditional distribution:
 
 $$
 \pi_t(\cdot \mid s_t)
