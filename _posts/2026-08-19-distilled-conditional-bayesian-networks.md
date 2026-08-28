@@ -184,7 +184,11 @@ Calibration of a node can be performed post hoc, but for the same reason we sour
 
 ## Conclusion
 
-A queryable LLM gives us conditionals, but population simulation requires a reusable joint. A DisCo-BN builds that joint one factor at a time, using an on-policy forward training approach to distill the oracle LLM. When a trusted marginal is available, we can shift the new node's baseline before it enters the prefix. After the final node is learned, the network can simulate arbitrarily large populations of coherent people through ordinary forward sampling, with no further LLM calls.
+A queryable LLM gives us conditionals, but population simulation requires a reusable joint. A DisCo-BN builds that joint one factor at a time, using an on-policy forward training approach to distill the oracle LLM. When a trusted marginal is available, we can shift the new node's baseline before it enters the prefix. After the final node is learned, the network can simulate arbitrarily large populations of coherent people through ordinary forward sampling, with no further LLM calls. The finished network is itself an explicit joint distribution:
+
+$$P_{\pi}(A_1, A_2, \ldots, A_n \mid A_c) = \prod_{t=1}^n \pi_t(A_t \mid \operatorname{Pa}(t))$$
+
+A completed profile can be assigned a likelihood as readily as it can be sampled.
 
 ## Appendix: Query Cost and Model Size
 
