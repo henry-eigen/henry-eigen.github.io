@@ -5,7 +5,7 @@ date: 2026-08-31
 mathjax: true
 citation: true
 citation_key: eigen2026fields
-image: /assets/images/simulating-fields-field-diagram.png
+image: /assets/images/simulating-fields-preview.png
 description: "By reinterpreting our DisCo-BN joint as a baseline energy surface, we can model influences external to agents as fields, and derive an update operator for agents, allowing populations to change dynamically in response to modeled stimuli"
 ---
 
