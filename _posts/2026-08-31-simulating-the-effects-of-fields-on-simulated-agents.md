@@ -5,6 +5,7 @@ date: 2026-08-31
 mathjax: true
 citation: true
 citation_key: eigen2026fields
+image: /assets/images/simulating-fields-field-diagram.png
 description: "By reinterpreting our DisCo-BN joint as a baseline energy surface, we can model influences external to agents as fields, and derive an update operator for agents, allowing populations to change dynamically in response to modeled stimuli"
 ---
 
@@ -14,13 +15,12 @@ In previous posts, we proposed a method for modeling the joint distribution of r
 
 We previously demonstrated that our network could then be used to generate populations of coherent, representative agents by capturing the dependencies among the response attributes within each agent. But the resulting population was static, with no mechanism by which to update agents over time in response to between-agent social interactions or other modeled external influences.
 
-In this post, we will demonstrate a previously unexplored capacity of our network by defining such a mechanism. By reinterpreting our learned joint distribution as a baseline energy surface, and modeling influences external to an agent as fields, we can derive an update operator for agents, through which our population can change dynamically over time:
+<div style="display:flex;gap:0.75rem;margin:1.5rem 0;">
+<img src="/assets/images/simulating-fields-thought-bubble.png" style="width:50%;min-width:0;height:auto;" alt="An agent thinking a cloud containing a vector field over its own opinions, with supporting opinions pulling together and opposing ones pushing apart">
+<img src="/assets/images/simulating-fields-field-diagram.png" style="width:50%;min-width:0;height:auto;" alt="Four agents drawn as robot faces on a shared vector field, with arrows flowing between attracting agents and splitting apart between repelling ones">
+</div>
 
-$$
-P(A^{\mathrm{next}} = a)
-\propto\
-\pi(a) e^{F(a)}
-$$
+In this post, we will demonstrate a previously unexplored capacity of our network by defining such a mechanism. By reinterpreting our learned joint distribution as a baseline energy surface, and modeling influences external to an agent as fields, we can derive an update operator for agents, through which our population can change dynamically over time.
 
 We begin with a brief recap of our joint network, DisCo-BN. Readers familiar with the method can skip directly to [Section 1](#1-a-simple-model-of-social-interactions)
 
