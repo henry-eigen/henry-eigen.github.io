@@ -31,7 +31,7 @@ We begin with a brief recap of our joint network, DisCo-BN. Readers familiar wit
 Suppose agent profiles are composed of categorical response variables $$A = (A_1,\ \ldots,\ A_n)$$. A particular agent has a realized profile $$a = (a_1,\ \ldots,\ a_n)$$, where $$A_i=a_i$$ means the agent gave response $$a_i$$ for question $$i$$. We can provide an LLM a description of the agent's earlier responses and relevant context, and elicit in turn a conditional distribution over a yet-unobserved response:
 
 $$
-\text{``} A_{<t}=a_{<t}, \ A_t = \text{?''} \quad \rightarrow \quad \text{query LLM} \quad \rightarrow \quad P_{\text{LLM}}(A_t = \cdot \mid A_{<t} = a_{<t})
+\text{“} A_{<t}=a_{<t}, \ A_t = \text{?”} \quad \rightarrow \quad \text{query LLM} \quad \rightarrow \quad P_{\text{LLM}}(A_t = \cdot \mid A_{<t} = a_{<t})
 $$
 
 By repeating this elicitation for a variety of agent profiles, we can build a training dataset of conditional distribution targets with which to fit an offline model $$\pi_t$$:
@@ -47,7 +47,7 @@ $$
 While univariate conditionals can be reliably elicited from the LLM, various methods for directly eliciting a joint conditional over multiple unknown attributes are either unreliable, or infeasible at scale:
 
 $$
-\text{``} A_1 = a_1,\ A_{2\ :\ t} = \text{?''} \quad \rightarrow \quad \text{query LLM} \quad \not \rightarrow \quad P(A_2,\ A_3,\ \ldots,\ A_t \mid A_1=a_1)
+\text{“} A_1 = a_1,\ A_{2\ :\ t} = \text{?”} \quad \rightarrow \quad \text{query LLM} \quad \mathrel{\rlap{\hspace{0.85em}/}\longrightarrow} \quad P(A_2,\ A_3,\ \ldots,\ A_t \mid A_1=a_1)
 $$
 
 Rather than trying to elicit the joint from the LLM directly, we factorize the desired joint probability as a product of univariate conditionals elicited from the LLM. DisCo-BN expresses this factorization as a Bayesian network, and parameterizes each node $$t$$ with $$\pi_t$$.
@@ -122,7 +122,7 @@ g=
 E(-1) - E(+1)
 $$
 
-In the original paper's single-attribute setting, there were no other within-agent attributes on which intrinsic support could depend. In our multi-attribute setting, however, using the marginal probability $$P(A_r=k)$$ would average over every possible configuration of the remaining attributes, thereby ignoring how well $$A_r=k$$ fits with the rest of a particular agent's profile. We therefore condition the agent's intrinsic support for $$A_r=k$$ on the rest of its attributes, denoted $$A_{-r} := (A_s)_{s \neq r}$$, using the conditional probability:
+In the original paper's single-attribute setting, there were no other within-agent attributes on which intrinsic support could depend. In our multi-attribute setting though, the marginal probability $$P(A_r=k)$$ would average over the configurations of the remaining attributes, thereby ignoring how coherently $$A_r=k$$ fits with the rest of a particular agent's profile. We therefore condition the agent's intrinsic support for $$A_r=k$$ on the rest of its attributes, denoted $$A_{-r} := (A_s)_{s \neq r}$$, using the conditional probability:
 
 $$P(A_r=k \mid A_{-r} = a_{-r})$$
 
