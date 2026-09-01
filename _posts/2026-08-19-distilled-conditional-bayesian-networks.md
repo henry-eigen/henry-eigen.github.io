@@ -5,6 +5,7 @@ date: 2026-08-19
 mathjax: true
 citation: true
 citation_key: eigen2026disco
+image: /assets/images/distilled-conditional-bayesian-networks-preview.png
 description: "LLMs supply conditional structure but make poor coherent generators. We distill their conditionals, node by node, into an offline Bayesian network that generates arbitrarily large coherent synthetic populations after a one-time distillation cost."
 ---
 
