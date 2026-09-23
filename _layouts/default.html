@@ -62,7 +62,9 @@
     img { max-width: 100%; height: auto; margin: 1.5rem 0; border-radius: 4px; }
     ul, ol { margin-bottom: 1rem; padding-left: 1.5rem; }
     li { margin-bottom: 0.3rem; }
-    blockquote { border-left: 3px solid var(--border); padding-left: 1rem; margin: 1.5rem 0; color: var(--muted); font-size: 0.9rem; }
+    blockquote { border: 1px solid var(--border); border-radius: 6px; background: color-mix(in srgb, var(--fg) 6%, var(--bg)); padding: 1rem 1.25rem; margin: 1.5rem 0; }
+    blockquote > :last-child { margin-bottom: 0; }
+    blockquote.citation-quote { border: none; border-left: 3px solid var(--border); border-radius: 0; background: none; padding: 0 0 0 1rem; color: var(--muted); font-size: 0.9rem; }
     code {
       font-family: "SF Mono", Menlo, Consolas, monospace;
       font-size: 0.9em;

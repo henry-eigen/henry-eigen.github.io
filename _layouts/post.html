@@ -11,7 +11,7 @@ layout: default
   {% if page.citation %}
   <h2 id="citation">Citation</h2>
   <p>Please cite this work as:</p>
-  <blockquote>Eigen, Henry. "{{ page.title }}". Heigen Thought ({{ page.date | date: "%b %Y" }}). {{ site.url }}{{ page.url }}</blockquote>
+  <blockquote class="citation-quote">Eigen, Henry. "{{ page.title }}". Heigen Thought ({{ page.date | date: "%b %Y" }}). {{ site.url }}{{ page.url }}</blockquote>
   <p>Or use the BibTeX citation:</p>
   <pre><code>@article{{ '{' }}{{ page.citation_key }},
   title = {{ '{' }}{{ page.title }}},
