@@ -295,7 +295,11 @@ Technically speaking, there is no distinction between overlapping variables and 
 
 $$u_{rs}(a) = \varepsilon_b(a^{(r)}, a^{(s)}) - \varepsilon_r(a^{(r)}) - \varepsilon_s(a^{(s)})$$
 
-We only draw a descriptive distinction so that we can continue to think of our factors as clusters of attributes which collectively describe some greater trait (while bridges can be any collection of related attributes across factors between which we want information to pass). It also allows us to represent our bridge energies in the form typically with which physics represents interacting systems. For a collection of initially separate joints and a set $$\mathcal{B}$$ of bridged pairs, we can write 
+We only draw a descriptive distinction so that we can continue to think of our factors as clusters of attributes which collectively describe some greater trait (while bridges can be any collection of related attributes across factors between which we want information to pass). It also allows us to represent our bridge energies in the form typically with which physics represents interacting systems.
+
+<img src="/assets/images/energy-based-population-modeling-thought-bubble.png" width="720" style="display:block;margin:1.5rem auto;" alt="One agent thinking a cloud that holds four of its opinions in a vector field, with supporting opinions pulling together and opposing ones pushing apart">
+
+For a collection of initially separate joints and a set $$\mathcal{B}$$ of bridged pairs, we can write 
 
 $$\varepsilon_0(a) = \sum_j \varepsilon_j(a_{V_j}) + \sum_{(r,s) \in \mathcal{B}} u_{rs}(a)$$
 
