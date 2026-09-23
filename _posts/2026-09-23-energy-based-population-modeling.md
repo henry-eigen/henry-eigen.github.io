@@ -65,6 +65,8 @@ $$P(x) = \frac{e^{-E(x)}}{Z}, \qquad Z = \sum_x e^{-E(x)}$$
 
 In the previous post, we proposed a method for approximating the joint probability of an agent's attribute profile. Using LLM-elicited conditional probabilities to approximate CPDs (conditional probability distributions) for each attribute, we built an offline parameterization of the probability of each attribute $$a^{(r)}$$ as a function of its parent attributes $$\pi_r(a^{(r)} \mid a)$$. We then composed these individual functions into an auto-regressive factorization of the joint probability across all attributes. Whereas we previously used $$\pi_r$$ to indicate the conditional probability function for individual attributes, here we will simply write $$f$$ to refer to the joint distribution they factorized
 
+<img src="/assets/images/energy-based-population-modeling-world-to-joint.png" width="720" style="display:block;margin:1.5rem auto;" alt="Three panels on one factor graph. The world model in full, then a spotlight on four variables showing the conditionals the LLM supplies as a directed network, then the same four variables as one composed factor">
+
 If $$f$$ represents the probability for a single agent's state, we can solve for the energy of a single agent using the same Boltzmann form from earlier. Writing $$\varepsilon(a)$$ as the microscopic energy of a single agent, we define the energy as 
 
 $$f(a) := \prod_{r=1}^{n} \pi_r(a) = P(a), \qquad \varepsilon(a) = -\log f(a)$$
@@ -122,6 +124,8 @@ Achieving a particular target magnetization then is a matter of finding the fiel
 ### 4.1 Fields
 
 In physics, a field has a very literal interpretation. What does it mean though to subject a population to a "field"? In this case, we will take advantage of the fact that statistical mechanics already models fields in the needed form (as energetic effects on the microscopic variables), and postpone our interpretation, allowing it to eventually follow from, rather than initially motivating, the form.
+
+<img src="/assets/images/energy-based-population-modeling-field-diagram.png" width="720" style="display:block;margin:1.5rem auto;" alt="Four agents drawn as robot faces sitting in a vector field, each acted on by the field where it stands">
 
 For now, we'll say that a particular field couples with specific attributes. This is consistent with the physics formulation where, for example, a magnetic field couples with specific microscopic properties (i.e. a particle's spin, but not its mass). So we'll write $$h_r$$ to indicate a field which couples with the microscopic property (profile attribute) $$r$$. When $$h_r$$ is applied to the population, we can write the energetic effect it has on each microscopic variable as
 
@@ -198,6 +202,8 @@ In this form, we can finally offer an interpretation of the mechanism we borrowe
 
 For example, if we were to add a field in order to increase the share of retirees in our population, we would not do so by modeling young people in the population as more likely to retire, but rather by making young people less likely to appear in the population altogether.
 
+<img src="/assets/images/energy-based-population-modeling-two-operations.png" width="720" style="display:block;margin:1.5rem auto;" alt="Three rows of six agents with speech bubbles giving their retirement answer. The baseline has a retired share of one third. Changing the population composition shifts the mix older while every age keeps its answer. Changing individual behavior keeps the mix and has the middle group retire. Both reach two thirds">
+
 It is clear then that fields can help to resolve the apparent contradiction from earlier, of preserving the coherence of microscopic states, while also allowing us to modify the measurements of their properties in aggregate. The one remaining question then is how to solve for the correct field strength to match specific desired measurements?
 
 ### 4.4 Solving for Field Strengths
@@ -256,6 +262,8 @@ Each joint is locally normalized, meaning their product is as well. So long as o
 In the previous post, our entire motivation for the autoregressive network was our desire to treat multiple variables as conditionally interdependent parts of a complete, coherent profile. Here, rather than single variables, we have local clusters of attributes, $$V_j$$, but we should like to do something similar. Suppose one cluster contains attributes related to a person's moral philosophy profile, and another cluster contains variables related to political beliefs. We should not assume these are independent
 
 We will consider two means of connecting our local factor clusters then. First, by composing factors which have overlapping variable sets, and then by defining "bridges" connecting existing, disjoint factors.
+
+<img src="/assets/images/energy-based-population-modeling-composing-joints.png" width="720" style="display:block;margin:1.5rem auto;" alt="Three spotlights on one factor graph. One elicited factor over four variables, then two factors sharing a variable drawn half in each color, then two disjoint factors connected by a hollow bridge factor">
 
 ### 5.3 Overlapping Variables
 
@@ -324,6 +332,8 @@ Adjusting the fields changes the system's equilibrium distribution. Once the tar
 A careful reader may have noticed that, despite describing an ensemble of entire populations, the expected proportions we have been measuring can be obtained from the distribution of a single agent. We have introduced increasingly rich relationships between attributes, though all of these relationships remain within an individual's profile. The population itself is still a collection of independent draws from that distribution. Have we gone through all this merely to borrow some of the prestige and apparent rigor of statistical mechanics?
 
 Not entirely. Though admittedly, it doesn't hurt.
+
+<img src="/assets/images/energy-based-population-modeling-energy-landscape.png" width="720" style="display:block;margin:1.5rem auto;" alt="Three panels of one energy curve over a configuration axis with the Boltzmann mass below it. The reference energy, the energy after adding a field, which tilts it, and after adding a factor, which reshapes it">
 
 The energy formulation has given us a common means of composing microscopic relationships, imposing macroscopic conditions, and measuring the resulting distribution. Our assumption of independence has also allowed us to postpone a question which becomes difficult to avoid when thinking about populations. What happens when an individual's state depends on the states of those around them?
 
