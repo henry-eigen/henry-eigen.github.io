@@ -9,6 +9,12 @@ image: /assets/images/energy-based-population-modeling-preview.png
 description: "Treating the LLM-derived joint as an energy lets us compose partial models of individuals into one population distribution, impose macroscopic conditions as external fields, and read the population's remaining properties from its equilibrium."
 ---
 
+<details class="toc" markdown="1">
+<summary>Table of Contents</summary>
+* TOC
+{:toc}
+</details>
+
 ## 1. Intro
 
 In the [previous post](/2026/08/19/distilled-conditional-bayesian-networks.html), we proposed a method for eliciting conditional probabilities from a language model, and composing them into joint distributions over arbitrary sets of human characteristics. This gave us a means of capturing the LLM's priors about the relationships between those characteristics in a form which could serve as a foundation for modeling individuals, and through that the populations they form.
